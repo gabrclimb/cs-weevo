@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Moon, Sun } from 'lucide-react'
 
 const CHAVE = 'tema'
@@ -15,11 +16,27 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   function alternar() {
     const proximo = !escuro
-    document.documentElement.classList.toggle('dark', proximo)
+    const raiz = document.documentElement
+    const aplicar = () => {
+      raiz.classList.toggle('dark', proximo)
+      setEscuro(proximo)
+    }
     try {
       localStorage.setItem(CHAVE, proximo ? 'escuro' : 'claro')
     } catch {}
-    setEscuro(proximo)
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return aplicar()
+
+    // Fade entre a tela antes e depois: anima até o gradiente de fundo, que o CSS não consegue transicionar.
+    if (typeof document.startViewTransition === 'function') {
+      document.startViewTransition(() => flushSync(aplicar))
+      return
+    }
+
+    // Sem a API (navegadores antigos): transição de cores, ligada só durante a troca para não pesar no resto.
+    raiz.classList.add('trocando-tema')
+    aplicar()
+    window.setTimeout(() => raiz.classList.remove('trocando-tema'), 400)
   }
 
   return (

@@ -20,7 +20,7 @@ import {
   Popover as PopoverPrimitive,
   Select as SelectPrimitive,
 } from 'radix-ui'
-import { Check, ChevronDown, ChevronUp, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Eye, EyeOff, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoDica } from './dica'
 
@@ -57,6 +57,26 @@ const campo =
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(campo, 'h-9 py-1', className)} {...props} />
+}
+
+/** Campo de senha com botão de olho para mostrar ou esconder o que foi digitado. */
+export function InputSenha({ className, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visivel, setVisivel] = useState(false)
+  return (
+    <div className="relative">
+      <Input {...props} type={visivel ? 'text' : 'password'} className={cn('pr-10', className)} />
+      <button
+        type="button"
+        onClick={() => setVisivel((v) => !v)}
+        aria-label={visivel ? 'Esconder senha' : 'Mostrar senha'}
+        aria-pressed={visivel}
+        title={visivel ? 'Esconder senha' : 'Mostrar senha'}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {visivel ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+      </button>
+    </div>
+  )
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

@@ -136,6 +136,27 @@
   size-adjust: 134.59%;
 }
 
+/* Troca de tema: o navegador faz um fade entre a tela antes e depois (ver ThemeToggle). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 350ms;
+  animation-timing-function: ease-in-out;
+}
+
+/* Alternativa para navegadores sem View Transitions: anima só as cores, apenas durante a troca. */
+html.trocando-tema,
+html.trocando-tema *,
+html.trocando-tema *::before,
+html.trocando-tema *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease,
+    box-shadow 300ms ease !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
