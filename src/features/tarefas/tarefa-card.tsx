@@ -46,14 +46,7 @@ export function TarefaCard({
   }
 
   return (
-    <article
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', t.id)
-        e.dataTransfer.effectAllowed = 'move'
-      }}
-      className="group cursor-grab space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs active:cursor-grabbing"
-    >
+    <article className="group space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs">
       <div className="flex items-start gap-2">
         <Dica texto={<><strong>{TIPO_TAREFA[t.tipo].label}.</strong> {DICA_TIPO_TAREFA[t.tipo]}</>} className="mt-0.5 shrink-0">
           <Icone className="size-4 text-muted-foreground/70" aria-label={TIPO_TAREFA[t.tipo].label} />
