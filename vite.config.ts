@@ -9,7 +9,8 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     // SPA: o Supabase é o backend; o app roda inteiro no navegador, protegido por RLS.
-    tanstackStart({ spa: { enabled: true } }),
+    // A página de entrada sai como index.html (padrão seria _shell.html), que é o que a Vercel serve.
+    tanstackStart({ spa: { enabled: true, prerender: { outputPath: '/index.html' } } }),
     viteReact(),
   ],
 })
