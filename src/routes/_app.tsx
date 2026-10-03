@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { CalendarCheck, CircleHelp, ListTodo, LogOut, MessageSquareText, Trophy, Users, UsersRound } from 'lucide-react'
+import { CalendarCheck, CircleHelp, ListTodo, LogOut, MessageSquareText, Settings, Trophy, Users, UsersRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useRealtime } from '@/lib/realtime'
@@ -20,6 +20,7 @@ const NAV = [
   { to: '/participantes', label: 'Participantes', icon: Users },
   { to: '/turmas', label: 'Turmas', icon: UsersRound },
   { to: '/templates', label: 'Templates', icon: MessageSquareText },
+  { to: '/configuracoes', label: 'Configurações', icon: Settings },
   { to: '/ajuda', label: 'Ajuda', icon: CircleHelp },
 ] as const
 
@@ -59,8 +60,10 @@ function AppLayout() {
     <div className="min-h-dvh">
       <aside className="fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r bg-gradient-to-b from-primary/25 via-background/90 to-background/95 backdrop-blur [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">W</span>
-          <span className="font-semibold tracking-tight">Weevo Controle</span>
+          {/* Duas versões da logo: a menta (para fundo escuro) e a verde-petróleo (para fundo claro). */}
+          <img src="/icone-teal.svg" alt="" className="h-7 w-auto shrink-0 dark:hidden" />
+          <img src="/icone-mint.svg" alt="" className="hidden h-7 w-auto shrink-0 dark:block" />
+          <span className="font-semibold tracking-tight">CS Weevo</span>
         </div>
         <div className="mx-5 mb-3 h-px bg-border" />
         <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
@@ -105,7 +108,7 @@ function SemPermissao() {
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4 rounded-xl border bg-card p-6 text-center text-card-foreground shadow-sm">
         <h1 className="text-lg font-semibold">Acesso não liberado</h1>
-        <p className="text-sm text-muted-foreground">Seu usuário ainda não tem acesso ao Weevo Controle. Fale com o responsável pelo sistema.</p>
+        <p className="text-sm text-muted-foreground">Seu usuário ainda não tem acesso ao CS Weevo. Fale com o responsável pelo sistema.</p>
         <button onClick={() => supabase.auth.signOut()} className="h-9 rounded-[min(var(--radius-md),12px)] border bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted">
           Sair
         </button>
