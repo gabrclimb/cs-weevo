@@ -2,7 +2,7 @@ import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, ArrowRight, FileUp } from 'lucide-react'
-import { Button, Dialog, Input, Select } from '@/components/ui'
+import { Button, Dialog, InputSugestoes, Select } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { formatarTelefone } from '@/lib/telefone'
 import { cn, mensagemErro } from '@/lib/utils'
@@ -271,18 +271,15 @@ export function ImportParticipantesDialog({
 
           <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {temColunaTurma ? 'Turma para quem estiver sem turma no arquivo:' : 'Turma de todos os participantes do arquivo:'}
-            <Input
-              className="w-48 py-1"
-              list="turmas-existentes"
-              value={turmaFixa}
-              onChange={(e) => setTurmaFixa(e.target.value)}
-              placeholder="Ex.: Setembro"
-            />
-            <datalist id="turmas-existentes">
-              {arquivo.turmas.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
+            <div className="w-48">
+              <InputSugestoes
+                className="py-1"
+                value={turmaFixa}
+                onValueChange={setTurmaFixa}
+                sugestoes={arquivo.turmas}
+                placeholder="Ex.: Setembro"
+              />
+            </div>
           </label>
           <p className="text-xs text-muted-foreground">
             Várias colunas podem ir para "Observações": o conteúdo entra como "Coluna: valor".

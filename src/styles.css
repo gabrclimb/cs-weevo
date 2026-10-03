@@ -21,6 +21,8 @@
   --destructive: hsl(0 84.2% 60.2%);
   --radius: 0.875rem;
   --brilho: rgb(32 79 77 / 0.10);
+  --scrollbar: hsl(240 5% 82%);
+  --scrollbar-hover: rgb(32 79 77 / 0.55);
 }
 
 .dark {
@@ -40,6 +42,8 @@
   --ring: hsl(176 30% 60%);
   --brilho: rgb(38 110 104 / 0.28);
   --destructive: hsl(0 62.8% 30.6%);
+  --scrollbar: rgb(255 255 255 / 0.13);
+  --scrollbar-hover: rgb(47 138 131 / 0.75);
 
   /*
    * Cores de status (badges, alertas) usam a escala clara no tema claro.
@@ -176,6 +180,32 @@
   }
   [draggable='true'] {
     cursor: grab;
+  }
+
+  /* Barra de rolagem nas cores do tema: discreta, fica teal ao passar o mouse. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-color: var(--scrollbar);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-hover);
+  }
+  /* Firefox não tem os pseudo-elementos acima; usa as propriedades padrão. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar) transparent;
+    }
   }
   [draggable='true']:active {
     cursor: grabbing;

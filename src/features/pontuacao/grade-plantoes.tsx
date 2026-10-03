@@ -47,7 +47,7 @@ export function GradePlantoes({ estados }: { estados: ReturnType<typeof estadosP
               </span>
             </Tooltip.Trigger>
             <Tooltip.Portal>
-              <Tooltip.Content sideOffset={4} className="z-50 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md">
+              <Tooltip.Content sideOffset={4} className="z-[70] rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md">
                 Plantão {numero}: {texto}
                 {plantao?.data && ` · ${dataCurta(plantao.data)}`}
               </Tooltip.Content>

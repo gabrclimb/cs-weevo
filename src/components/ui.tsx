@@ -1,6 +1,26 @@
-import { Children, Fragment, isValidElement, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type TextareaHTMLAttributes } from 'react'
-import { Dialog as DialogPrimitive, Select as SelectPrimitive } from 'radix-ui'
-import { Check, ChevronDown, ChevronUp, X } from 'lucide-react'
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react'
+import {
+  Dialog as DialogPrimitive,
+  DropdownMenu as MenuPrimitive,
+  Popover as PopoverPrimitive,
+  Select as SelectPrimitive,
+} from 'radix-ui'
+import { Check, ChevronDown, ChevronUp, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoDica } from './dica'
 
@@ -159,6 +179,250 @@ export function Select({
  * Rótulo + campo. `dica` fica sempre visível abaixo do campo (orientação de preenchimento);
  * `ajuda` é a explicação mais longa no ícone "?", que some quando as dicas estão desligadas.
  */
+type PropsCampoLista = {
+  role: 'combobox'
+  autoComplete: 'off'
+  'aria-expanded': boolean
+  'aria-controls': string
+  'aria-autocomplete': 'list'
+  'aria-activedescendant': string | undefined
+  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void
+}
+
+/**
+ * Lista flutuante de opções presa a um campo de texto (busca, sugestões).
+ * Fica num portal para não ser cortada pela rolagem do modal, tem fundo sólido como o Select
+ * e navega com ↑ ↓ Enter Esc. O campo é renderizado por `children`, que recebe os atributos de acessibilidade.
+ */
+export function ListaFlutuante<T>({
+  aberto,
+  itens,
+  chaveDe,
+  renderItem,
+  onEscolher,
+  onFechar,
+  children,
+}: {
+  aberto: boolean
+  itens: T[]
+  chaveDe: (item: T) => string
+  renderItem: (item: T) => ReactNode
+  onEscolher: (item: T) => void
+  onFechar: () => void
+  children: (props: PropsCampoLista) => ReactNode
+}) {
+  const id = useId()
+  const ancora = useRef<HTMLDivElement>(null)
+  const [ativo, setAtivo] = useState(0)
+  const visivel = aberto && itens.length > 0
+
+  useEffect(() => setAtivo(0), [itens.length, visivel])
+
+  // O modal trava a rolagem da página pelo document; a roda do mouse na lista não pode chegar até lá.
+  const lista = useCallback((el: HTMLDivElement | null) => {
+    el?.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true })
+    el?.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true })
+  }, [])
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (!visivel) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setAtivo((a) => (a + 1) % itens.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setAtivo((a) => (a - 1 + itens.length) % itens.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      onEscolher(itens[Math.min(ativo, itens.length - 1)])
+    }
+  }
+
+  return (
+    <PopoverPrimitive.Root open={visivel} onOpenChange={(o) => !o && onFechar()}>
+      <PopoverPrimitive.Anchor asChild>
+        <div ref={ancora}>
+          {children({
+            role: 'combobox',
+            autoComplete: 'off',
+            'aria-expanded': visivel,
+            'aria-controls': id,
+            'aria-autocomplete': 'list',
+            'aria-activedescendant': visivel ? `${id}-${ativo}` : undefined,
+            onKeyDown,
+          })}
+        </div>
+      </PopoverPrimitive.Anchor>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          ref={lista}
+          id={id}
+          role="listbox"
+          align="start"
+          sideOffset={4}
+          collisionPadding={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => {
+            if (ancora.current?.contains(e.target as Node)) e.preventDefault()
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          className="z-[60] max-h-[min(16rem,var(--radix-popover-content-available-height))] w-(--radix-popover-trigger-width) overflow-y-auto overscroll-contain rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          {itens.map((item, i) => (
+            <div
+              key={chaveDe(item)}
+              id={`${id}-${i}`}
+              role="option"
+              aria-selected={i === ativo}
+              onMouseEnter={() => setAtivo(i)}
+              onClick={() => onEscolher(item)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none select-none',
+                i === ativo && 'bg-muted text-foreground',
+              )}
+            >
+              {renderItem(item)}
+            </div>
+          ))}
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  )
+}
+
+const semAcento = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim()
+
+/** Campo de texto livre com sugestões (substitui o <datalist>, que o navegador desenha fora do tema). */
+export function InputSugestoes({
+  value,
+  onValueChange,
+  sugestoes,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'list'> & {
+  value: string
+  onValueChange: (valor: string) => void
+  sugestoes: string[]
+}) {
+  const [aberto, setAberto] = useState(false)
+  const q = semAcento(value)
+  const itens = sugestoes.filter((s) => {
+    const n = semAcento(s)
+    return n.includes(q) && n !== q
+  })
+
+  function escolher(valor: string) {
+    onValueChange(valor)
+    setAberto(false)
+  }
+
+  return (
+    <ListaFlutuante
+      aberto={aberto}
+      itens={itens}
+      chaveDe={(s) => s}
+      renderItem={(s) => <span className="truncate">{s}</span>}
+      onEscolher={escolher}
+      onFechar={() => setAberto(false)}
+    >
+      {(a11y) => (
+        <Input
+          {...props}
+          {...a11y}
+          value={value}
+          onChange={(e) => {
+            onValueChange(e.target.value)
+            setAberto(true)
+          }}
+          onFocus={(e) => {
+            setAberto(true)
+            props.onFocus?.(e)
+          }}
+          onClick={() => setAberto(true)}
+          onBlur={(e) => {
+            setAberto(false)
+            props.onBlur?.(e)
+          }}
+        />
+      )}
+    </ListaFlutuante>
+  )
+}
+
+export type AcaoMenu =
+  | {
+      label: string
+      icone?: LucideIcon
+      /** Linha de apoio abaixo do rótulo (ex.: quantos serão afetados ou por que está desabilitada). */
+      descricao?: string
+      onSelect: () => void
+      disabled?: boolean
+      perigo?: boolean
+    }
+  | 'separador'
+
+/** Botão único que abre um menu com várias ações (mesmo visual do Select). */
+export function MenuAcoes({
+  rotulo,
+  icone: Icone,
+  acoes,
+  variante = 'primario',
+  disabled,
+}: {
+  rotulo: ReactNode
+  icone?: LucideIcon
+  acoes: AcaoMenu[]
+  variante?: Variante
+  disabled?: boolean
+}) {
+  return (
+    <MenuPrimitive.Root modal={false}>
+      <MenuPrimitive.Trigger asChild disabled={disabled}>
+        <Button variante={variante}>
+          {Icone && <Icone className="size-4" />}
+          {rotulo}
+          <ChevronDown className="size-4 opacity-70" aria-hidden="true" />
+        </Button>
+      </MenuPrimitive.Trigger>
+      <MenuPrimitive.Portal>
+        <MenuPrimitive.Content
+          align="end"
+          sideOffset={4}
+          collisionPadding={8}
+          className="z-[60] min-w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          {acoes.map((a, i) =>
+            a === 'separador' ? (
+              <MenuPrimitive.Separator key={i} className="-mx-1 my-1 h-px bg-border" />
+            ) : (
+              <MenuPrimitive.Item
+                key={a.label}
+                disabled={a.disabled}
+                onSelect={a.onSelect}
+                className={cn(
+                  'flex items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-muted data-[highlighted]:text-foreground',
+                  a.perigo && 'text-rose-600 data-[highlighted]:text-rose-600',
+                )}
+              >
+                {a.icone && <a.icone className="mt-0.5 size-4 shrink-0 opacity-80" aria-hidden="true" />}
+                <span className="min-w-0">
+                  {a.label}
+                  {a.descricao && <span className="block text-xs text-muted-foreground">{a.descricao}</span>}
+                </span>
+              </MenuPrimitive.Item>
+            ),
+          )}
+        </MenuPrimitive.Content>
+      </MenuPrimitive.Portal>
+    </MenuPrimitive.Root>
+  )
+}
+
 export function Campo({
   label,
   children,

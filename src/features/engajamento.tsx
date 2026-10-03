@@ -90,7 +90,7 @@ export function PontuacaoBadge({ pontuacao, className }: { pontuacao?: Pontuacao
         </span>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content side="left" sideOffset={6} className="z-50 w-72 rounded-lg border bg-card p-3 text-xs shadow-lg">
+        <Tooltip.Content side="left" sideOffset={6} className="z-[70] w-72 rounded-lg border bg-popover p-3 text-xs text-popover-foreground shadow-lg">
           <p className="mb-2 font-semibold text-foreground">Pontuação {pontuacao.total} de 100</p>
           <table className="w-full">
             <tbody>

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
-import { Button, Campo, Dialog, Input, Select, Textarea } from '@/components/ui'
+import { Button, Campo, Dialog, Input, InputSugestoes, Select, Textarea } from '@/components/ui'
 import type { ParticipanteRow } from '@/lib/database.types'
 import { formatarTelefone, normalizarTelefone } from '@/lib/telefone'
 import { useAtualizarParticipante, useCriarParticipante, useParticipantes, useTurmas } from './queries'
@@ -183,20 +183,19 @@ export function ParticipanteForm({ aberto, onAbertoChange, participante, onSalvo
           <div className="grid gap-3 sm:grid-cols-2">
             {CAMPOS_ACOMPANHAMENTO.filter(([, , longo]) => !longo).map(([k, label]) => (
               <Campo key={k} label={label} dica={AJUDA_ACOMPANHAMENTO[k].dica} ajuda={AJUDA_ACOMPANHAMENTO[k].ajuda}>
-                <Input
-                  value={form[k]}
-                  onChange={set(k)}
-                  placeholder={AJUDA_ACOMPANHAMENTO[k].placeholder}
-                  list={k === 'responsavel' ? 'responsaveis' : undefined}
-                />
+                {k === 'responsavel' ? (
+                  <InputSugestoes
+                    value={form[k]}
+                    onValueChange={(v) => setForm((f) => ({ ...f, [k]: v }))}
+                    sugestoes={responsaveis}
+                    placeholder={AJUDA_ACOMPANHAMENTO[k].placeholder}
+                  />
+                ) : (
+                  <Input value={form[k]} onChange={set(k)} placeholder={AJUDA_ACOMPANHAMENTO[k].placeholder} />
+                )}
               </Campo>
             ))}
           </div>
-          <datalist id="responsaveis">
-            {responsaveis.map((r) => (
-              <option key={r} value={r} />
-            ))}
-          </datalist>
           {CAMPOS_ACOMPANHAMENTO.filter(([, , longo]) => longo).map(([k, label]) => (
             <Campo key={k} label={label}>
               <Textarea className="min-h-14" value={form[k]} onChange={set(k)} placeholder={AJUDA_ACOMPANHAMENTO[k].placeholder} />

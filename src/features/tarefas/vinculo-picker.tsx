@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { User, Users, X } from 'lucide-react'
-import { Input } from '@/components/ui'
+import { Input, ListaFlutuante } from '@/components/ui'
 import { normalize } from '@/lib/csv'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 
@@ -58,43 +58,42 @@ export function VinculoPicker({ valor, onChange }: { valor: Vinculo; onChange: (
   }
 
   return (
-    <div className="relative">
-      <Input
-        value={busca}
-        placeholder="Buscar participante ou turma (vazio = tarefa interna)"
-        onChange={(e) => {
-          setBusca(e.target.value)
-          setAberto(true)
-        }}
-        onFocus={() => setAberto(true)}
-        onBlur={() => setTimeout(() => setAberto(false), 150)}
-      />
-      {aberto && resultados.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-card py-1 shadow-lg">
-          {resultados.map((r) => (
-            <li key={`${r.tipo}-${r.id}`}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-muted"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onChange(
-                    r.tipo === 'turma'
-                      ? { participante_id: null, turma_id: r.id }
-                      : { participante_id: r.id, turma_id: null },
-                  )
-                  setBusca('')
-                  setAberto(false)
-                }}
-              >
-                {r.tipo === 'turma' ? <Users className="size-4 text-muted-foreground/70" /> : <User className="size-4 text-muted-foreground/70" />}
-                <span>{r.nome}</span>
-                {r.extra && <span className="text-xs text-muted-foreground/70">{r.extra}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+    <ListaFlutuante
+      aberto={aberto}
+      itens={resultados}
+      chaveDe={(r) => `${r.tipo}-${r.id}`}
+      onFechar={() => setAberto(false)}
+      onEscolher={(r) => {
+        onChange(r.tipo === 'turma' ? { participante_id: null, turma_id: r.id } : { participante_id: r.id, turma_id: null })
+        setBusca('')
+        setAberto(false)
+      }}
+      renderItem={(r) => (
+        <>
+          {r.tipo === 'turma' ? (
+            <Users className="size-4 shrink-0 text-muted-foreground/70" />
+          ) : (
+            <User className="size-4 shrink-0 text-muted-foreground/70" />
+          )}
+          <span className="truncate">{r.nome}</span>
+          {r.extra && <span className="truncate text-xs text-muted-foreground/70">{r.extra}</span>}
+        </>
       )}
-    </div>
+    >
+      {(a11y) => (
+        <Input
+          {...a11y}
+          value={busca}
+          placeholder="Buscar participante ou turma (vazio = tarefa interna)"
+          onChange={(e) => {
+            setBusca(e.target.value)
+            setAberto(true)
+          }}
+          onFocus={() => setAberto(true)}
+          onClick={() => setAberto(true)}
+          onBlur={() => setAberto(false)}
+        />
+      )}
+    </ListaFlutuante>
   )
 }

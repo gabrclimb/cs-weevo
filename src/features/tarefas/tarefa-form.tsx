@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Wand2 } from 'lucide-react'
-import { Button, Campo, Dialog, Input, Select, Textarea } from '@/components/ui'
+import { Button, Campo, Dialog, Input, InputSugestoes, Select, Textarea } from '@/components/ui'
 import { InfoDica } from '@/components/dica'
 import { DICA_STATUS_TAREFA, DICA_TIPO_TAREFA } from '@/lib/textos-dicas'
 import type { TarefaRow } from '@/lib/database.types'
@@ -186,12 +186,12 @@ export function TarefaForm({
             <Input type="time" value={form.horario} onChange={(e) => set('horario', e.target.value)} />
           </Campo>
           <Campo label="Canal" ajuda="Onde o contato acontece. Escolha da lista ou digite outro.">
-            <Input list="canais" value={form.canal} onChange={(e) => set('canal', e.target.value)} placeholder="WhatsApp privado" />
-            <datalist id="canais">
-              {CANAIS.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
+            <InputSugestoes
+              value={form.canal}
+              onValueChange={(v) => set('canal', v)}
+              sugestoes={CANAIS}
+              placeholder="WhatsApp privado"
+            />
           </Campo>
           <Campo label="Status" ajuda={DICA_STATUS_TAREFA[form.status]}>
             <Select value={form.status} onValueChange={(v) => set('status', v as Form['status'])}>
