@@ -1,0 +1,19 @@
+node_modules
+dist
+.output
+.vinxi
+.tanstack
+src/routeTree.gen.ts
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+.DS_Store
+*.log
+.diskcheck.txt
