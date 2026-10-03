@@ -23,16 +23,18 @@ import { GradePlantoes, LegendaPlantoes, estadosPlantoes, type EstadoPlantao } f
 import { ExplicacaoPontuacao } from '@/features/pontuacao/explicacao-pontuacao'
 import { podeRepassar, useRepassar } from '@/features/pontuacao/repassar'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
-import { VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
+import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
+
+/** Cabeçalho da tabela com fundo próprio; o rodapé da paginação repete o mesmo estilo. */
+const CABECALHO_ENGAJAMENTO = 'bg-muted/50 text-left text-xs tracking-wide text-muted-foreground uppercase'
 
 type Ordem = 'pontuacao' | 'nome'
 export type BuscaEngajamento = {
   turma?: string
   q?: string
   ordem?: Ordem
-  todos?: boolean
   visao?: Visao
   agrupar?: Agrupamento
 }
@@ -42,7 +44,6 @@ export const Route = createFileRoute('/_app/engajamento')({
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
     q: typeof s.q === 'string' && s.q ? s.q : undefined,
     ordem: s.ordem === 'nome' ? 'nome' : undefined,
-    todos: s.todos === true || s.todos === 'true' ? true : undefined,
     visao: lerVisao(s.visao),
     agrupar: lerAgrupamento(s.agrupar),
   }),
@@ -88,9 +89,6 @@ function EngajamentoPage() {
     const q = normalize(busca.q)
     return (participantes.data ?? [])
       .filter((p) => !busca.turma || p.turma_id === busca.turma)
-      .filter(
-        (p) => busca.todos || (p.status !== 'inativo' && p.weevo_start !== 'assinante' && p.weevo_start !== 'recusou'),
-      )
       .filter((p) => !q || normalize(`${p.nome} ${p.apelido ?? ''} ${p.empresa ?? ''}`).includes(q))
       .map((p) => {
         const evs = eventosPorParticipante.get(p.id) ?? []
@@ -133,8 +131,11 @@ function EngajamentoPage() {
 
   const { itensPagina, inicio, controles } = usePaginacao(linhas, { ...busca, visao: undefined, agrupar: undefined })
   // "Selecionar todos" vale para a página visível, para não marcar quem não está na tela.
-  const elegiveis = itensPagina.filter(({ p }) => podeRepassar(p))
   const selecionadosLista = linhas.filter(({ p }) => selecionados.has(p.id)).map(({ p }) => p)
+  // A seleção vale para todos; o repasse só atinge quem ainda pode ser repassado.
+  const repassaveis = selecionadosLista.filter(podeRepassar)
+  const paginaToda = itensPagina.length > 0 && itensPagina.every(({ p }) => selecionados.has(p.id))
+  const paginaParcial = !paginaToda && itensPagina.some(({ p }) => selecionados.has(p.id))
 
   function alternarAberto(id: string) {
     setAbertos((s) => {
@@ -196,38 +197,24 @@ function EngajamentoPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Engajamento</h1>
-          <p className="text-sm text-muted-foreground">
-            Quem está mais engajado, presença nos plantões e como cada pontuação foi calculada. Clique numa linha para
-            ver os registros que contaram.{' '}
-            <Link to="/ajuda" className="text-primary hover:underline">
-              Como funciona a pontuação
-            </Link>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {visao === 'kanban' && (
-            <AgruparPor valor={agrupamento} onChange={(a) => setBusca({ agrupar: a === 'faixa' ? undefined : a })} />
-          )}
-          <VisaoToggle valor={visao} onChange={(v) => setBusca({ visao: v === 'tabela' ? undefined : v })} />
-          <Button variante="secundario" onClick={exportar} disabled={!linhas.length}>
-            <Download className="size-4" />
-            Exportar CSV
-          </Button>
-          <Button
-            disabled={!selecionadosLista.length || repassar.isPending}
-            onClick={() => repassar.mutate(selecionadosLista, { onSuccess: () => setSelecionados(new Set()) })}
-          >
-            <Handshake className="size-4" />
-            Repassar {selecionadosLista.length || ''} ao comercial
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Engajamento</h1>
+        <p className="text-sm text-muted-foreground">
+          Quem está mais engajado, presença nos plantões e como cada pontuação foi calculada. Clique numa linha para ver
+          os registros que contaram.{' '}
+          <Link to="/ajuda" className="text-primary hover:underline">
+            Como funciona a pontuação
+          </Link>
+        </p>
       </div>
 
+      {/* Tudo numa linha: visão, busca, filtros e ações. A busca é o campo que encolhe; se faltar espaço, a linha quebra. */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-60 flex-1">
+        <VisaoToggle valor={visao} onChange={(v) => setBusca({ visao: v === 'tabela' ? undefined : v })} />
+        {visao === 'kanban' && (
+          <AgruparPor valor={agrupamento} onChange={(a) => setBusca({ agrupar: a === 'faixa' ? undefined : a })} />
+        )}
+        <div className="relative min-w-40 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             className="pl-9"
@@ -236,7 +223,7 @@ function EngajamentoPage() {
             onChange={(e) => setBusca({ q: e.target.value || undefined })}
           />
         </div>
-        <Select className="w-52" value={busca.turma ?? ''} onValueChange={(v) => setBusca({ turma: v || undefined })}>
+        <Select className="w-44" value={busca.turma ?? ''} onValueChange={(v) => setBusca({ turma: v || undefined })}>
           <option value="">Todas as turmas</option>
           {turmas.data?.map((t) => (
             <option key={t.id} value={t.id}>
@@ -252,14 +239,26 @@ function EngajamentoPage() {
           <option value="pontuacao">Ordenar por pontuação</option>
           <option value="nome">Ordenar por nome</option>
         </Select>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={!!busca.todos}
-            onChange={(e) => setBusca({ todos: e.target.checked || undefined })}
-          />
-          Incluir inativos, assinantes e quem recusou
-        </label>
+        <Button variante="secundario" onClick={exportar} disabled={!linhas.length}>
+          <Download className="size-4" />
+          Exportar CSV
+        </Button>
+        <Dica
+          texto={
+            selecionadosLista.length > repassaveis.length
+              ? `${selecionadosLista.length - repassaveis.length} dos selecionados não entram no repasse: só vale para quem está “Não avaliado” ou “Candidato”.`
+              : undefined
+          }
+          lado="bottom"
+        >
+          <Button
+            disabled={!repassaveis.length || repassar.isPending}
+            onClick={() => repassar.mutate(repassaveis, { onSuccess: () => setSelecionados(new Set()) })}
+          >
+            <Handshake className="size-4" />
+            Repassar {repassaveis.length || ''} ao comercial
+          </Button>
+        </Dica>
       </div>
 
       {resumoPlantoes && (
@@ -296,20 +295,24 @@ function EngajamentoPage() {
         <>
           <LegendaPlantoes />
 
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className={cn('overflow-hidden rounded-lg border bg-card', ENTRADA_VISAO)}>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b bg-muted/50 text-left text-xs tracking-wide text-muted-foreground uppercase">
+              <thead className={cn('border-b', CABECALHO_ENGAJAMENTO)}>
                 <tr>
                   <th className="w-8 px-2 py-3" />
                   <th className="w-8 px-2 py-3">
                     <input
                       type="checkbox"
                       aria-label="Selecionar todos desta página"
-                      checked={!!elegiveis.length && elegiveis.every(({ p }) => selecionados.has(p.id))}
+                      checked={paginaToda}
+                      ref={(el) => {
+                        if (el) el.indeterminate = paginaParcial
+                      }}
                       onChange={(e) =>
                         setSelecionados((s) => {
                           const n = new Set(s)
-                          for (const { p } of elegiveis) {
+                          for (const { p } of itensPagina) {
                             if (e.target.checked) n.add(p.id)
                             else n.delete(p.id)
                           }
@@ -379,14 +382,12 @@ function EngajamentoPage() {
                           </button>
                         </td>
                         <td className="px-2 py-2.5" onClick={parar}>
-                          {elegivel && (
-                            <input
-                              type="checkbox"
-                              aria-label={`Selecionar ${p.nome}`}
-                              checked={selecionados.has(p.id)}
-                              onChange={(e) => alternarSelecionado(p.id, e.target.checked)}
-                            />
-                          )}
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${p.nome}`}
+                            checked={selecionados.has(p.id)}
+                            onChange={(e) => alternarSelecionado(p.id, e.target.checked)}
+                          />
                         </td>
                         <td className="px-2 py-2.5 text-muted-foreground tabular-nums">{inicio + i + 1}</td>
                         <td className="px-3 py-2.5">
@@ -470,8 +471,9 @@ function EngajamentoPage() {
                 )}
               </tbody>
             </table>
+            </div>
+            <Paginacao {...controles} className={cn('border-t px-4 py-3', CABECALHO_ENGAJAMENTO)} />
           </div>
-          <Paginacao {...controles} />
         </>
       )}
 

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FileUp, Handshake, ListChecks, Pencil, Plus, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileUp, Handshake, ListChecks, Pencil, Plus, Search, X } from 'lucide-react'
 import { Button, Input, MenuAcoes, Select } from '@/components/ui'
 import { podeRepassar, useRepassar } from '@/features/pontuacao/repassar'
 import { Th } from '@/components/dica'
+import { BotaoFiltros, CampoFiltro } from '@/components/filtros'
 import { useDicas } from '@/lib/dicas'
 import { EdicaoMassaDialog } from '@/features/participantes/edicao-massa-dialog'
 import { DICA_COLUNA } from '@/lib/textos-dicas'
@@ -11,23 +12,32 @@ import { StatusBadge, WeevoStartBadge } from '@/features/participantes/badges'
 import type { ParticipanteStatus, WeevoStart } from '@/lib/database.types'
 import { normalize } from '@/lib/csv'
 import { formatarTelefone } from '@/lib/telefone'
-import { haQuanto } from '@/lib/utils'
-import { STATUS_KEYS, STATUS_PARTICIPANTE, WEEVO_START, WEEVO_START_KEYS } from '@/features/participantes/constantes'
+import { cn, haQuanto } from '@/lib/utils'
+import {
+  STATUS_KEYS,
+  STATUS_PARTICIPANTE,
+  WEEVO_START,
+  WEEVO_START_KEYS,
+  apelidoDistinto,
+} from '@/features/participantes/constantes'
 import { ImportParticipantesDialog } from '@/features/participantes/import-dialog'
 import { ParticipanteForm } from '@/features/participantes/participante-form'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
-import { VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
-import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
+import { AGRUPAMENTOS, agrupar, lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { SeletorAgrupar } from '@/components/agrupar-por'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
-import { Paginacao, usePaginacao } from '@/components/paginacao'
+import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
+
+type FiltroAlerta = 'qualquer' | 'sem_contato' | 'sem_resposta'
 
 type Filtros = {
   q?: string
   turma?: string
   status?: ParticipanteStatus
   ws?: WeevoStart
-  alerta?: boolean
+  alerta?: FiltroAlerta
   resp?: string
   visao?: Visao
   agrupar?: Agrupamento
@@ -39,7 +49,13 @@ export const Route = createFileRoute('/_app/participantes/')({
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
     status: STATUS_KEYS.includes(s.status as ParticipanteStatus) ? (s.status as ParticipanteStatus) : undefined,
     ws: WEEVO_START_KEYS.includes(s.ws as WeevoStart) ? (s.ws as WeevoStart) : undefined,
-    alerta: s.alerta === true || s.alerta === 'true' ? true : undefined,
+    // `true` vem de links antigos, quando o filtro era só "com alerta".
+    alerta:
+      s.alerta === true || s.alerta === 'true' || s.alerta === 'qualquer'
+        ? 'qualquer'
+        : s.alerta === 'sem_contato' || s.alerta === 'sem_resposta'
+          ? s.alerta
+          : undefined,
     resp: typeof s.resp === 'string' && s.resp ? s.resp : undefined,
     visao: lerVisao(s.visao),
     agrupar: lerAgrupamento(s.agrupar),
@@ -69,7 +85,10 @@ function ParticipantesPage() {
       if (filtros.turma === 'sem' ? p.turma_id : filtros.turma && p.turma_id !== filtros.turma) return false
       if (filtros.status && p.status !== filtros.status) return false
       if (filtros.ws && p.weevo_start !== filtros.ws) return false
-      if (filtros.alerta && !porParticipante.get(p.id)?.alertas.length) return false
+      if (filtros.alerta) {
+        const alertas = porParticipante.get(p.id)?.alertas ?? []
+        if (filtros.alerta === 'qualquer' ? !alertas.length : !alertas.some((a) => a.tipo === filtros.alerta)) return false
+      }
       if (filtros.resp && (filtros.resp === 'sem' ? p.responsavel : p.responsavel !== filtros.resp)) return false
       if (busca) {
         const texto = normalize(`${p.nome} ${p.apelido ?? ''} ${p.empresa ?? ''}`)
@@ -80,7 +99,29 @@ function ParticipantesPage() {
     })
   }, [participantes.data, filtros, porParticipante])
 
-  const { itensPagina, controles } = usePaginacao(filtrados, { ...filtros, visao: undefined, agrupar: undefined })
+  // Na tabela o agrupamento é opcional: sem `agrupar` na URL, a lista segue sem grupos.
+  const agrupamentoTabela = filtros.visao === 'tabela' ? filtros.agrupar : undefined
+  const grupos = useMemo(
+    () =>
+      agrupamentoTabela
+        ? agrupar(agrupamentoTabela, participantes.data ?? [], turmas.data ?? [], (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0)
+        : undefined,
+    [agrupamentoTabela, participantes.data, turmas.data, porParticipante],
+  )
+  // Com grupos, quem é do mesmo grupo fica junto (inclusive entre páginas); dentro do grupo a ordem é mantida.
+  const ordenados = useMemo(() => {
+    if (!grupos) return filtrados
+    const posicao = new Map(grupos.colunas.map((c, i) => [c.chave, i]))
+    return [...filtrados].sort((a, b) => (posicao.get(grupos.colunaDe(a)) ?? 0) - (posicao.get(grupos.colunaDe(b)) ?? 0))
+  }, [filtrados, grupos])
+  const totalPorGrupo = useMemo(() => {
+    const total = new Map<string, number>()
+    if (grupos) for (const p of filtrados) total.set(grupos.colunaDe(p), (total.get(grupos.colunaDe(p)) ?? 0) + 1)
+    return total
+  }, [filtrados, grupos])
+  const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set())
+
+  const { itensPagina, controles } = usePaginacao(ordenados, { ...filtros, visao: undefined, agrupar: undefined })
 
   // Só conta quem está selecionado e continua visível com os filtros atuais.
   const selecionadosLista = filtrados.filter((p) => selecionados.has(p.id))
@@ -103,6 +144,7 @@ function ParticipantesPage() {
     navigate({ search: (atual) => ({ ...atual, ...mudanca }), replace: true })
 
   const temFiltro = !!(filtros.q || filtros.turma || filtros.status || filtros.ws || filtros.alerta || filtros.resp)
+  const filtrosAtivos = [filtros.turma, filtros.resp, filtros.status, filtros.ws, filtros.alerta].filter(Boolean).length
   // Participantes abre em kanban; a tabela fica guardada na URL como visao=tabela.
   const visao = filtros.visao ?? 'kanban'
   const agrupamento = filtros.agrupar ?? 'status'
@@ -110,97 +152,111 @@ function ParticipantesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Participantes</h1>
-          <p className="text-sm text-muted-foreground">
-            {participantes.data
-              ? `${filtrados.length} de ${participantes.data.length} participante(s)`
-              : 'Carregando…'}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {visao === 'kanban' && (
-            <AgruparPor valor={agrupamento} onChange={(a) => setFiltro({ agrupar: a === 'status' ? undefined : a })} />
-          )}
-          <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'kanban' ? undefined : v })} />
-          <Button variante="secundario" onClick={() => setImportAberto(true)}>
-            <FileUp className="size-4" />
-            Importar CSV
-          </Button>
-          <Button onClick={() => setNovoAberto(true)}>
-            <Plus className="size-4" />
-            Novo participante
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Participantes</h1>
+        <p className="text-sm text-muted-foreground">
+          {participantes.data ? `${filtrados.length} de ${participantes.data.length} participante(s)` : 'Carregando…'}
+        </p>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_170px_160px_160px_180px_auto_auto]">
-        <div className="relative">
+      {/* Tudo numa linha: visão, busca, filtros e ações. A busca é o campo que encolhe; se faltar espaço, a linha quebra. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'kanban' ? undefined : v })} />
+        {visao === 'kanban' ? (
+          <AgruparPor valor={agrupamento} onChange={(a) => setFiltro({ agrupar: a === 'status' ? undefined : a })} />
+        ) : (
+          <SeletorAgrupar
+            valor={agrupamentoTabela}
+            onChange={(a) => setFiltro({ agrupar: a })}
+            opcoes={AGRUPAMENTOS}
+            ocultar={['faixa']}
+            semAgrupar
+          />
+        )}
+        <div className="relative min-w-40 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             className="pl-9"
-            placeholder="Buscar por nome, apelido, empresa ou telefone"
+            placeholder="Buscar participante"
+            title="Busca por nome, apelido, empresa ou telefone"
             defaultValue={filtros.q ?? ''}
             onChange={(e) => setFiltro({ q: e.target.value || undefined })}
           />
         </div>
-        <Select value={filtros.turma ?? ''} onValueChange={(v) => setFiltro({ turma: v || undefined })}>
-          <option value="">Todas as turmas</option>
-          <option value="sem">Sem turma</option>
-          {turmas.data?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nome}
-            </option>
-          ))}
-        </Select>
-        <Select value={filtros.resp ?? ''} onValueChange={(v) => setFiltro({ resp: v || undefined })}>
-          <option value="">Todos os responsáveis</option>
-          <option value="sem">Sem responsável</option>
-          {responsaveis.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={filtros.status ?? ''}
-          onValueChange={(v) => setFiltro({ status: (v || undefined) as ParticipanteStatus | undefined })}
+        <BotaoFiltros
+          ativos={filtrosAtivos}
+          onLimpar={() =>
+            setFiltro({ turma: undefined, resp: undefined, status: undefined, ws: undefined, alerta: undefined })
+          }
         >
-          <option value="">Todos os status</option>
-          {STATUS_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {STATUS_PARTICIPANTE[k].label}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={filtros.ws ?? ''}
-          onValueChange={(v) => setFiltro({ ws: (v || undefined) as WeevoStart | undefined })}
-        >
-          <option value="">Weevo Start: todos</option>
-          {WEEVO_START_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {WEEVO_START[k].label}
-            </option>
-          ))}
-        </Select>
-        <label className="flex items-center gap-2 text-sm whitespace-nowrap text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={!!filtros.alerta}
-            onChange={(e) => setFiltro({ alerta: e.target.checked || undefined })}
-          />
-          Com alerta
-        </label>
-        {temFiltro && (
-          <Button
-            variante="fantasma"
-            onClick={() => navigate({ search: (s) => ({ visao: s.visao, agrupar: s.agrupar }), replace: true })}
-          >
-            Limpar
-          </Button>
-        )}
+          <CampoFiltro label="Turma">
+            <Select value={filtros.turma ?? ''} onValueChange={(v) => setFiltro({ turma: v || undefined })}>
+              <option value="">Todas as turmas</option>
+              <option value="sem">Sem turma</option>
+              {turmas.data?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nome}
+                </option>
+              ))}
+            </Select>
+          </CampoFiltro>
+          <CampoFiltro label="Responsável">
+            <Select value={filtros.resp ?? ''} onValueChange={(v) => setFiltro({ resp: v || undefined })}>
+              <option value="">Todos os responsáveis</option>
+              <option value="sem">Sem responsável</option>
+              {responsaveis.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+          </CampoFiltro>
+          <CampoFiltro label="Status">
+            <Select
+              value={filtros.status ?? ''}
+              onValueChange={(v) => setFiltro({ status: (v || undefined) as ParticipanteStatus | undefined })}
+            >
+              <option value="">Todos os status</option>
+              {STATUS_KEYS.map((k) => (
+                <option key={k} value={k}>
+                  {STATUS_PARTICIPANTE[k].label}
+                </option>
+              ))}
+            </Select>
+          </CampoFiltro>
+          <CampoFiltro label="Weevo Start">
+            <Select
+              value={filtros.ws ?? ''}
+              onValueChange={(v) => setFiltro({ ws: (v || undefined) as WeevoStart | undefined })}
+            >
+              <option value="">Todas as etapas</option>
+              {WEEVO_START_KEYS.map((k) => (
+                <option key={k} value={k}>
+                  {WEEVO_START[k].label}
+                </option>
+              ))}
+            </Select>
+          </CampoFiltro>
+          <CampoFiltro label="Alertas">
+            <Select
+              value={filtros.alerta ?? ''}
+              onValueChange={(v) => setFiltro({ alerta: (v || undefined) as FiltroAlerta | undefined })}
+            >
+              <option value="">Com ou sem alerta</option>
+              <option value="qualquer">Com qualquer alerta</option>
+              <option value="sem_contato">Sem contato</option>
+              <option value="sem_resposta">Sem resposta</option>
+            </Select>
+          </CampoFiltro>
+        </BotaoFiltros>
+        <Button variante="secundario" onClick={() => setImportAberto(true)}>
+          <FileUp className="size-4" />
+          Importar CSV
+        </Button>
+        <Button onClick={() => setNovoAberto(true)}>
+          <Plus className="size-4" />
+          Novo participante
+        </Button>
       </div>
 
       {participantes.error ? (
@@ -268,9 +324,10 @@ function ParticipantesPage() {
               </p>
             )
           )}
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className={cn('overflow-hidden rounded-lg border bg-card', ENTRADA_VISAO)}>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              <thead className={cn('border-b', CABECALHO_TABELA)}>
                 <tr>
                   <th className="w-10 px-4 py-3">
                     <CaixaSelecao
@@ -294,8 +351,48 @@ function ParticipantesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {itensPagina.map((p) => (
-                  <tr key={p.id} className={selecionados.has(p.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}>
+                {itensPagina.map((p, i) => {
+                  const chaveGrupo = grupos?.colunaDe(p)
+                  const abreGrupo = !!grupos && (i === 0 || grupos.colunaDe(itensPagina[i - 1]) !== chaveGrupo)
+                  const coluna = abreGrupo ? grupos.colunas.find((c) => c.chave === chaveGrupo) : undefined
+                  const recolhido = chaveGrupo !== undefined && recolhidos.has(chaveGrupo)
+                  return (
+                  <Fragment key={p.id}>
+                  {coluna && chaveGrupo !== undefined && (
+                    <tr className="bg-muted/40">
+                      <td className="px-4 py-2">
+                        <CaixaSelecao
+                          aria-label={`Selecionar todos de ${coluna.titulo}`}
+                          checked={filtrados.filter((x) => grupos!.colunaDe(x) === chaveGrupo).every((x) => selecionados.has(x.id))}
+                          onChange={(marcado) =>
+                            marcar(filtrados.filter((x) => grupos!.colunaDe(x) === chaveGrupo).map((x) => x.id), marcado)
+                          }
+                        />
+                      </td>
+                      <td colSpan={9} className="px-4 py-2">
+                        <button
+                          type="button"
+                          aria-expanded={!recolhido}
+                          className="flex items-center gap-2 text-sm font-semibold"
+                          onClick={() =>
+                            setRecolhidos((atual) => {
+                              const novo = new Set(atual)
+                              if (novo.has(chaveGrupo)) novo.delete(chaveGrupo)
+                              else novo.add(chaveGrupo)
+                              return novo
+                            })
+                          }
+                        >
+                          {recolhido ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                          <span className={`size-2 rounded-full ${coluna.ponto ?? 'bg-muted-foreground'}`} />
+                          {coluna.titulo}
+                          <span className="font-normal text-muted-foreground">{totalPorGrupo.get(chaveGrupo) ?? 0}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {!recolhido && (
+                  <tr className={selecionados.has(p.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}>
                     <td className="px-4 py-3">
                       <CaixaSelecao
                         aria-label={`Selecionar ${p.nome}`}
@@ -312,7 +409,7 @@ function ParticipantesPage() {
                         {p.nome}
                       </Link>
                       <div className="text-xs text-muted-foreground">
-                        {[p.apelido && `"${p.apelido}"`, formatarTelefone(p.telefone), p.empresa]
+                        {[apelidoDistinto(p) && `"${apelidoDistinto(p)}"`, formatarTelefone(p.telefone), p.empresa]
                           .filter(Boolean)
                           .join(' · ')}
                       </div>
@@ -336,7 +433,10 @@ function ParticipantesPage() {
                       <PontuacaoBadge pontuacao={porParticipante.get(p.id)?.pontuacao} />
                     </td>
                   </tr>
-                ))}
+                  )}
+                  </Fragment>
+                  )
+                })}
                 {participantes.data && filtrados.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
@@ -348,10 +448,11 @@ function ParticipantesPage() {
                 )}
               </tbody>
             </table>
+            </div>
+            <Paginacao {...controles} className={RODAPE_TABELA} />
           </div>
         </>
       )}
-      {visao === 'tabela' && <Paginacao {...controles} />}
 
       <ParticipanteForm
         aberto={novoAberto}

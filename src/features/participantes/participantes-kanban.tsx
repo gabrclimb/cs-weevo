@@ -1,15 +1,18 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { MessageCircleReply, User } from 'lucide-react'
-import { Badge, Select } from '@/components/ui'
+import { Building2, CalendarCheck, MessageCircleReply, Phone, Send, User, Users } from 'lucide-react'
+import { Badge } from '@/components/ui'
+import { SeletorAgrupar } from '@/components/agrupar-por'
 import { Dica } from '@/components/dica'
 import { Kanban } from '@/components/kanban'
 import type { ParticipanteRow, TurmaRow } from '@/lib/database.types'
+import { formatarTelefone } from '@/lib/telefone'
 import { haQuanto } from '@/lib/utils'
 import { AlertasBadges, PontuacaoBadge, type Engajamento } from '@/features/engajamento'
-import { AGRUPAMENTOS, AGRUPAMENTO_KEYS, agrupar, type Agrupamento } from './agrupamentos'
+import { AGRUPAMENTOS, agrupar, type Agrupamento } from './agrupamentos'
 import { DICA_COLUNA, DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { StatusBadge, WeevoStartBadge } from './badges'
+import { apelidoDistinto } from './constantes'
 import { useAtualizarParticipante } from './queries'
 import { useRepassar } from '@/features/pontuacao/repassar'
 
@@ -34,13 +37,12 @@ export function AgruparPor({
   ocultar?: Agrupamento[]
 }) {
   return (
-    <Select className="w-56" value={valor} onValueChange={(v) => onChange(v as Agrupamento)} aria-label="Agrupar por">
-      {AGRUPAMENTO_KEYS.filter((k) => !ocultar.includes(k)).map((k) => (
-        <option key={k} value={k}>
-          Agrupar por: {AGRUPAMENTOS[k]}
-        </option>
-      ))}
-    </Select>
+    <SeletorAgrupar
+      valor={valor}
+      onChange={(a) => a && onChange(a)}
+      opcoes={AGRUPAMENTOS}
+      ocultar={ocultar}
+    />
   )
 }
 
@@ -109,34 +111,104 @@ export function ParticipantesKanban({
       }
       renderCard={(p) => {
         const eng = porParticipante.get(p.id)
+        // O campo pelo qual o quadro está agrupado já aparece no título da coluna.
+        const mostrarDia = !!p.dia_escolhido && agrupamento !== 'dia_escolhido'
+        const mostrarCadastro = !!p.cadastro_plataforma && agrupamento !== 'cadastro_plataforma'
         return (
           <article className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs">
             <div className="flex items-start justify-between gap-2">
-              <Link
-                to="/participantes/$id"
-                params={{ id: p.id }}
-                draggable={false}
-                className="font-medium text-foreground hover:text-primary hover:underline"
-              >
-                {p.nome}
-              </Link>
+              <div className="min-w-0">
+                <Link
+                  to="/participantes/$id"
+                  params={{ id: p.id }}
+                  draggable={false}
+                  className="font-medium text-foreground hover:text-primary hover:underline"
+                >
+                  {p.nome}
+                </Link>
+                {apelidoDistinto(p) && <span className="ml-1.5 text-xs text-muted-foreground">“{apelidoDistinto(p)}”</span>}
+              </div>
               <PontuacaoBadge pontuacao={eng?.pontuacao} />
             </div>
+
+            {(p.empresa || p.telefone) && (
+              <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                {p.empresa && (
+                  <Dica texto={DICA_COLUNA.empresa}>
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <Building2 className="size-3 shrink-0" />
+                      <span className="truncate">{p.empresa}</span>
+                    </span>
+                  </Dica>
+                )}
+                {p.telefone && (
+                  <Dica texto={DICA_COLUNA.telefone}>
+                    <span className="inline-flex items-center gap-1.5 tabular-nums">
+                      <Phone className="size-3 shrink-0" />
+                      {formatarTelefone(p.telefone)}
+                    </span>
+                  </Dica>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {mostrarTurma && agrupamento !== 'turma' && p.turma_id && <span>{nomeTurma.get(p.turma_id)}</span>}
-              {agrupamento !== 'responsavel' && p.responsavel && (
-                <span className="inline-flex items-center gap-1">
-                  <User className="size-3" />
-                  {p.responsavel}
-                </span>
+              {mostrarTurma && agrupamento !== 'turma' && p.turma_id && (
+                <Dica texto={DICA_COLUNA.turma}>
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="size-3" />
+                    {nomeTurma.get(p.turma_id)}
+                  </span>
+                </Dica>
               )}
-              <Dica texto={DICA_COLUNA.ultimaResposta}>
-                <span className="inline-flex items-center gap-1">
-                  <MessageCircleReply className="size-3" />
-                  {haQuanto(p.ultima_resposta_em)}
+              {agrupamento !== 'responsavel' && p.responsavel && (
+                <Dica texto={DICA_COLUNA.responsavel}>
+                  <span className="inline-flex items-center gap-1">
+                    <User className="size-3" />
+                    {p.responsavel}
+                  </span>
+                </Dica>
+              )}
+              <Dica texto={DICA_COLUNA.presencas}>
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <CalendarCheck className="size-3" />
+                  {eng?.pontuacao.detalhe.presencas ?? 0}/4 plantões
                 </span>
               </Dica>
             </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <Dica texto={DICA_COLUNA.ultimoContato}>
+                <span className="inline-flex items-center gap-1">
+                  <Send className="size-3" />
+                  Contato {haQuanto(p.ultimo_contato_em)}
+                </span>
+              </Dica>
+              <Dica texto={DICA_COLUNA.ultimaResposta}>
+                <span className="inline-flex items-center gap-1">
+                  <MessageCircleReply className="size-3" />
+                  Resposta {haQuanto(p.ultima_resposta_em)}
+                </span>
+              </Dica>
+            </div>
+
+            {(mostrarDia || mostrarCadastro || p.nps || p.sistema || p.dificuldades) && (
+              <dl className="space-y-1 border-t pt-2 text-xs">
+                {(mostrarDia || mostrarCadastro || p.nps) && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {mostrarDia && <CampoCard rotulo="Dia" valor={p.dia_escolhido!} dica={DICA_COLUNA.diaEscolhido} />}
+                    {mostrarCadastro && (
+                      <CampoCard rotulo="Cadastro" valor={p.cadastro_plataforma!} dica={DICA_COLUNA.cadastroPlataforma} />
+                    )}
+                    {p.nps && <CampoCard rotulo="NPS" valor={p.nps} dica={DICA_COLUNA.nps} />}
+                  </div>
+                )}
+                {p.sistema && <CampoCard rotulo="Sistema" valor={p.sistema} dica={DICA_COLUNA.sistema} linhas />}
+                {p.dificuldades && (
+                  <CampoCard rotulo="Dificuldade" valor={p.dificuldades} dica={DICA_COLUNA.dificuldades} linhas />
+                )}
+              </dl>
+            )}
             <div className="flex flex-wrap gap-1">
               {agrupamento !== 'status' && (
                 <StatusBadge status={p.status} />
@@ -155,5 +227,17 @@ export function ParticipantesKanban({
         )
       }}
     />
+  )
+}
+
+/** Par rótulo/valor de uma informação do participante dentro do card. `linhas` limita o texto longo a 2 linhas. */
+function CampoCard({ rotulo, valor, dica, linhas }: { rotulo: string; valor: string; dica: string; linhas?: boolean }) {
+  return (
+    <Dica texto={linhas ? <span className="whitespace-pre-wrap">{valor}</span> : dica} className="min-w-0">
+      <div className="min-w-0">
+        <dt className={linhas ? 'text-muted-foreground' : 'inline text-muted-foreground'}>{linhas ? rotulo : `${rotulo}: `}</dt>
+        <dd className={linhas ? 'line-clamp-2 text-foreground' : 'inline text-foreground'}>{valor}</dd>
+      </div>
+    </Dica>
   )
 }

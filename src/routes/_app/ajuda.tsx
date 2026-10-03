@@ -284,9 +284,9 @@ function AjudaPage() {
         <ul className="list-disc space-y-1 pl-5 text-sm">
           <li>A página Engajamento ordena pela pontuação, do maior para o menor. Em empate, vem antes quem respondeu mais recentemente.</li>
           <li>
-            Por padrão ficam de fora: participantes com status <strong>Inativo</strong> e quem já está como{' '}
-            <strong>Assinante</strong> ou <strong>Recusou</strong> na Weevo Start. Marque "Incluir inativos, assinantes e
-            quem recusou" para ver todos.
+            Todos os participantes aparecem, inclusive os <strong>Inativos</strong> e quem já está como{' '}
+            <strong>Assinante</strong> ou <strong>Recusou</strong> na Weevo Start. Use o filtro de turma e a busca para
+            achar quem interessa.
           </li>
           <li>
             <strong>Repassar ao comercial</strong> muda a Weevo Start para "Repassado ao comercial" e registra o repasse na

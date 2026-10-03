@@ -148,6 +148,27 @@ export function useAtualizarEmMassa() {
   })
 }
 
+/**
+ * Troca o responsável de todos os participantes que têm `de`.
+ * Renomear = `para` com o nome novo; unir = `para` com um nome que já existe; remover = `para` nulo.
+ */
+export function useTrocarResponsavel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ de, para }: { de: string; para: string | null }) => {
+      const { data, error } = await supabase
+        .from('weevo_participantes')
+        .update({ responsavel: para })
+        .eq('responsavel', de)
+        .select('id')
+      if (error) throw error
+      return data.length
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+    onSettled: () => qc.invalidateQueries({ queryKey: chaves.participantes }),
+  })
+}
+
 export function useExcluirParticipante() {
   const qc = useQueryClient()
   return useMutation({

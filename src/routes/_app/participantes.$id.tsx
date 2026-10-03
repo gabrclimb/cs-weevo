@@ -6,7 +6,13 @@ import { Badge, Button, Dialog, Select } from '@/components/ui'
 import type { EventoRow, EventoTipo, ParticipanteStatus, WeevoStart } from '@/lib/database.types'
 import { formatarTelefone } from '@/lib/telefone'
 import { cn, dataHora, haQuanto, hojeISO } from '@/lib/utils'
-import { STATUS_KEYS, STATUS_PARTICIPANTE, WEEVO_START, WEEVO_START_KEYS } from '@/features/participantes/constantes'
+import {
+  STATUS_KEYS,
+  STATUS_PARTICIPANTE,
+  WEEVO_START,
+  WEEVO_START_KEYS,
+  apelidoDistinto,
+} from '@/features/participantes/constantes'
 import { CAMPOS_ACOMPANHAMENTO, ParticipanteForm } from '@/features/participantes/participante-form'
 import {
   useAtualizarParticipante,
@@ -120,7 +126,7 @@ function FichaParticipante() {
           <div className="space-y-1">
             <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold">
               {p.nome}
-              {p.apelido && <span className="text-base font-normal text-muted-foreground">"{p.apelido}"</span>}
+              {apelidoDistinto(p) && <span className="text-base font-normal text-muted-foreground">"{apelidoDistinto(p)}"</span>}
               <PontuacaoBadge pontuacao={eng?.pontuacao} className="text-base" />
             </h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">

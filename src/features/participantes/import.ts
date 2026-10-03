@@ -239,6 +239,8 @@ export function previaImportParticipantes(
       .filter(Boolean)
       .join('\n')
     if (obs) extras.observacoes = obs
+    // Sem apelido no arquivo, o apelido é o primeiro nome.
+    if (!extras.apelido) extras.apelido = nome.trim().split(/\s+/)[0]
 
     const presencas = ENCONTROS.flatMap((e, n) => (contaComoPresenca(valor(cels, e)) ? [n + 1] : []))
     if (presencas.length && !turma) previa.presencasSemTurma += presencas.length

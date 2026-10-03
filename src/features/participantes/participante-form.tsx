@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Button, Campo, Dialog, Input, InputSugestoes, Select, Textarea } from '@/components/ui'
 import type { ParticipanteRow } from '@/lib/database.types'
 import { formatarTelefone, normalizarTelefone } from '@/lib/telefone'
+import { primeiroNome } from './constantes'
 import { useAtualizarParticipante, useCriarParticipante, useParticipantes, useTurmas } from './queries'
 
 type Props = {
@@ -63,14 +64,19 @@ export function ParticipanteForm({ aberto, onAbertoChange, participante, onSalvo
   const criar = useCriarParticipante()
   const atualizar = useAtualizarParticipante()
   const [form, setForm] = useState(VAZIO)
+  // O apelido acompanha o primeiro nome até alguém escrever outro apelido.
+  const [apelidoManual, setApelidoManual] = useState(false)
 
   useEffect(() => {
     if (!aberto) return
+    setApelidoManual(
+      !!participante?.apelido && participante.apelido.toLowerCase() !== primeiroNome(participante.nome).toLowerCase(),
+    )
     setForm(
       participante
         ? {
             nome: participante.nome,
-            apelido: participante.apelido ?? '',
+            apelido: participante.apelido || primeiroNome(participante.nome),
             telefone: formatarTelefone(participante.telefone),
             empresa: participante.empresa ?? '',
             turma_id: participante.turma_id ?? '',
@@ -95,7 +101,7 @@ export function ParticipanteForm({ aberto, onAbertoChange, participante, onSalvo
     }
     const dados = {
       nome: form.nome.trim(),
-      apelido: form.apelido.trim() || null,
+      apelido: form.apelido.trim() || primeiroNome(form.nome) || null,
       telefone,
       empresa: form.empresa.trim() || null,
       turma_id: form.turma_id || null,
@@ -126,15 +132,31 @@ export function ParticipanteForm({ aberto, onAbertoChange, participante, onSalvo
     >
       <form onSubmit={salvar} className="space-y-3">
         <Campo label="Nome *">
-          <Input required value={form.nome} onChange={set('nome')} autoFocus placeholder="Nome completo" />
+          <Input
+            required
+            value={form.nome}
+            onChange={(e) => {
+              const nome = e.target.value
+              setForm((f) => ({ ...f, nome, ...(apelidoManual ? {} : { apelido: primeiroNome(nome) }) }))
+            }}
+            autoFocus
+            placeholder="Nome completo"
+          />
         </Campo>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo
             label="Apelido"
-            dica="Como prefere ser chamado. Vazio = primeiro nome."
+            dica="Já vem com o primeiro nome. Mude se ele prefere outro."
             ajuda="Vai no lugar de [nome] nas mensagens dos templates."
           >
-            <Input value={form.apelido} onChange={set('apelido')} placeholder="Ex.: Zé" />
+            <Input
+              value={form.apelido}
+              onChange={(e) => {
+                setApelidoManual(true)
+                set('apelido')(e)
+              }}
+              placeholder="Ex.: Zé"
+            />
           </Campo>
           <Campo
             label="Telefone"

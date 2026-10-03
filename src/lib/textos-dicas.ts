@@ -9,7 +9,7 @@ export const DICA_STATUS_PARTICIPANTE: Record<ParticipanteStatus, string> = {
   sem_resposta:
     'Parou de responder. O sistema sugere este status quando surge o alerta "Sem resposta", mas a mudança é sempre manual.',
   inativo:
-    'Saiu do acompanhamento. Não gera alertas, não recebe tarefas geradas para a turma e fica fora da página Engajamento por padrão.',
+    'Saiu do acompanhamento. Não gera alertas, não recebe tarefas geradas para a turma.',
 }
 
 export const DICA_WEEVO_START: Record<WeevoStart, string> = {
@@ -17,8 +17,8 @@ export const DICA_WEEVO_START: Record<WeevoStart, string> = {
   candidato: 'Tem perfil para a Weevo Start, mas ainda não foi repassado ao comercial.',
   repassado_comercial: 'Já foi enviado ao comercial. Use o botão "Repassar" na página Engajamento para registrar o repasse.',
   cadastrado: 'Fez o cadastro na Weevo Start, mas ainda não assinou. Continua na página Engajamento.',
-  assinante: 'Assinou a Weevo Start. Fica fora da página Engajamento por padrão.',
-  recusou: 'Recusou a Weevo Start. Fica fora da página Engajamento por padrão.',
+  assinante: 'Assinou a Weevo Start.',
+  recusou: 'Recusou a Weevo Start.',
 }
 
 export const DICA_STATUS_TAREFA: Record<StatusTarefa, string> = {
@@ -76,6 +76,13 @@ export const DICA_COLUNA = {
   pontoResposta: `Parte das mensagens respondidas em até ${PESOS.janelaRespostaHoras}h, vezes ${PESOS.responsividadeMax}.`,
   pontoRecencia: `${PESOS.recencia7Dias} pontos se respondeu nos últimos 7 dias, ${PESOS.recencia14Dias} se entre 8 e 14 dias, 0 depois disso.`,
   pontoGrupo: `${PESOS.porInteracaoGrupo} pontos por interação no grupo da turma, até ${PESOS.tetoGrupo}.`,
+  telefone: 'Telefone do participante.',
+  empresa: 'Empresa onde o participante trabalha.',
+  diaEscolhido: 'Dia que o participante escolheu para os encontros.',
+  cadastroPlataforma: 'Situação do cadastro do participante na plataforma.',
+  nps: 'Se o participante respondeu o NPS.',
+  sistema: 'O que o participante está construindo.',
+  dificuldades: 'Onde o participante está travando.',
 } as const
 
 /** Colunas do kanban da tela Hoje. */

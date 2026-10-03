@@ -115,6 +115,10 @@ describe('previaImportParticipantes', () => {
     })
   })
 
+  it('sem apelido no arquivo, o apelido é o primeiro nome', () => {
+    expect(previa.novos[1].dados.apelido).toBe('Beltrana')
+  })
+
   it('duplicados e inválidas', () => {
     expect(previa.duplicados.map((d) => [d.nome, d.motivo])).toEqual([['Ciclano Souza', 'telefone já cadastrado']])
     expect(previa.invalidas).toEqual([

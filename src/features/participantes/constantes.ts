@@ -19,7 +19,17 @@ export const WEEVO_START: Record<WeevoStart, { label: string; classe: string }> 
 export const STATUS_KEYS = Object.keys(STATUS_PARTICIPANTE) as ParticipanteStatus[]
 export const WEEVO_START_KEYS = Object.keys(WEEVO_START) as WeevoStart[]
 
+export function primeiroNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] ?? ''
+}
+
 /** Nome usado no placeholder [nome]: apelido, senão primeiro nome. */
 export function nomeTratamento(p: { nome: string; apelido: string | null }): string {
-  return p.apelido?.trim() || p.nome.trim().split(/\s+/)[0]
+  return p.apelido?.trim() || primeiroNome(p.nome)
+}
+
+/** O apelido só vale mostrar quando é diferente do primeiro nome (que já é o padrão e já aparece no nome). */
+export function apelidoDistinto(p: { nome: string; apelido: string | null }): string | null {
+  const apelido = p.apelido?.trim()
+  return apelido && apelido.toLowerCase() !== primeiroNome(p.nome).toLowerCase() ? apelido : null
 }
