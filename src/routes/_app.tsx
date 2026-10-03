@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Calculator, CalendarCheck, CircleHelp, ListTodo, LogOut, MessageSquareText, Trophy, Users, UsersRound } from 'lucide-react'
+import { CalendarCheck, CircleHelp, ListTodo, LogOut, MessageSquareText, Trophy, Users, UsersRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useRealtime } from '@/lib/realtime'
@@ -15,11 +15,10 @@ export const Route = createFileRoute('/_app')({
 
 const NAV = [
   { to: '/', label: 'Hoje', icon: CalendarCheck },
+  { to: '/engajamento', label: 'Engajamento', icon: Trophy },
   { to: '/tarefas', label: 'Tarefas', icon: ListTodo },
   { to: '/participantes', label: 'Participantes', icon: Users },
   { to: '/turmas', label: 'Turmas', icon: UsersRound },
-  { to: '/ranking', label: 'Ranking', icon: Trophy },
-  { to: '/pontuacoes', label: 'Pontuações', icon: Calculator },
   { to: '/templates', label: 'Templates', icon: MessageSquareText },
   { to: '/ajuda', label: 'Ajuda', icon: CircleHelp },
 ] as const

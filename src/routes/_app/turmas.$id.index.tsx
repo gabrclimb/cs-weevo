@@ -10,6 +10,7 @@ import { Dica, InfoDica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
 import { useExcluirTurma, usePlantoes, useTurmas } from '@/features/turmas/queries'
 import { TurmaForm } from '@/features/turmas/turma-form'
+import { Paginacao, usePaginacao } from '@/components/paginacao'
 import { PlantaoForm } from '@/features/turmas/plantao-form'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
@@ -57,6 +58,8 @@ function TurmaPage() {
         .sort((a, b) => (porParticipante.get(b.id)?.pontuacao.total ?? 0) - (porParticipante.get(a.id)?.pontuacao.total ?? 0)),
     [participantes.data, id, porParticipante],
   )
+
+  const { itensPagina, controles } = usePaginacao(membros, id)
 
   if (turmas.isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
   if (!turma)
@@ -206,7 +209,7 @@ function TurmaPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {membros.map((p) => {
+                {itensPagina.map((p) => {
                   const eng = porParticipante.get(p.id)
                   return (
                     <tr key={p.id} className="hover:bg-muted/50">
@@ -240,6 +243,7 @@ function TurmaPage() {
             </table>
           </div>
         )}
+        {visao === 'tabela' && <Paginacao {...controles} />}
       </section>
 
       <TurmaForm aberto={editando} onAbertoChange={setEditando} turma={turma} />

@@ -280,9 +280,9 @@ function AjudaPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Quem aparece no ranking</h2>
+        <h2 className="text-lg font-semibold">Quem aparece em Engajamento</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm">
-          <li>O ranking ordena pela pontuação, do maior para o menor. Em empate, vem antes quem respondeu mais recentemente.</li>
+          <li>A página Engajamento ordena pela pontuação, do maior para o menor. Em empate, vem antes quem respondeu mais recentemente.</li>
           <li>
             Por padrão ficam de fora: participantes com status <strong>Inativo</strong> e quem já está como{' '}
             <strong>Assinante</strong> ou <strong>Recusou</strong> na Weevo Start. Marque "Incluir inativos, assinantes e

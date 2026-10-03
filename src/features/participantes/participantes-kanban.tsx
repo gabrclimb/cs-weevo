@@ -11,8 +11,10 @@ import { AGRUPAMENTOS, AGRUPAMENTO_KEYS, agrupar, type Agrupamento } from './agr
 import { DICA_COLUNA, DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { StatusBadge, WeevoStartBadge } from './badges'
 import { useAtualizarParticipante } from './queries'
+import { useRepassar } from '@/features/pontuacao/repassar'
 
 const AJUDA_MOVER: Record<Agrupamento, string> = {
+  faixa: '',
   status: 'o status (fica registrado na linha do tempo)',
   weevo_start: 'a Weevo Start (fica registrado na linha do tempo)',
   responsavel: 'o responsável',
@@ -62,15 +64,16 @@ export function ParticipantesKanban({
   carregando?: boolean
 }) {
   const atualizar = useAtualizarParticipante()
+  const repassar = useRepassar()
   const grupos = useMemo(() => {
-    const g = agrupar(agrupamento, participantes, turmas)
+    const g = agrupar(agrupamento, participantes, turmas, (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0)
     const dicas: Partial<Record<Agrupamento, Record<string, string>>> = {
       status: DICA_STATUS_PARTICIPANTE,
       weevo_start: DICA_WEEVO_START,
     }
     const dicasDoGrupo = dicas[agrupamento]
     return dicasDoGrupo ? { ...g, colunas: g.colunas.map((c) => ({ ...c, dica: dicasDoGrupo[c.chave] })) } : g
-  }, [agrupamento, participantes, turmas])
+  }, [agrupamento, participantes, turmas, porParticipante])
   const nomeTurma = useMemo(() => new Map(turmas.map((t) => [t.id, t.nome])), [turmas])
 
   // Dentro da coluna, quem tem mais pontuação vem primeiro.
@@ -90,8 +93,20 @@ export function ParticipantesKanban({
       chaveDe={(p) => p.id}
       carregando={carregando}
       vazio="Nenhum participante"
-      ajudaMover={`Arraste um card para outra coluna para mudar ${AJUDA_MOVER[agrupamento]}.`}
-      onMover={(p, destino) => atualizar.mutate({ atual: p, mudancas: grupos.mudancaPara(destino) })}
+      ajudaMover={
+        grupos.mudancaPara
+          ? `Arraste um card para outra coluna para mudar ${AJUDA_MOVER[agrupamento]}.`
+          : 'A faixa vem da pontuação: para mudar de coluna, registre presenças, respostas ou interações.'
+      }
+      onMover={
+        grupos.mudancaPara
+          ? (p, destino) => {
+              // Arrastar para "Repassado ao comercial" é um repasse: registra o evento próprio, como o botão Repassar.
+              if (agrupamento === 'weevo_start' && destino === 'repassado_comercial') repassar.mutate([p])
+              else atualizar.mutate({ atual: p, mudancas: grupos.mudancaPara!(destino) })
+            }
+          : undefined
+      }
       renderCard={(p) => {
         const eng = porParticipante.get(p.id)
         return (

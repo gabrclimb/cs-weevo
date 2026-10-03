@@ -19,7 +19,7 @@ describe('agrupar', () => {
     const g = agrupar('status', participantes, turmas)
     expect(g.colunas.map((c) => c.chave)).toEqual(['ativo', 'aguardando', 'sem_resposta', 'inativo'])
     expect(g.colunaDe(participantes[0])).toBe('inativo')
-    expect(g.mudancaPara('sem_resposta')).toEqual({ status: 'sem_resposta' })
+    expect(g.mudancaPara!('sem_resposta')).toEqual({ status: 'sem_resposta' })
     expect(g.colunas[0].ponto).toBe('bg-emerald-500')
   })
 
@@ -28,15 +28,25 @@ describe('agrupar', () => {
     expect(g.colunas.map((c) => c.titulo)).toEqual(['Sem responsável', 'Ana', 'Bruno'])
     expect(g.colunaDe(participantes[1])).toBe('Bruno')
     expect(g.colunaDe(participantes[3])).toBe(g.colunas[0].chave)
-    expect(g.mudancaPara('Ana')).toEqual({ responsavel: 'Ana' })
-    expect(g.mudancaPara(g.colunas[0].chave)).toEqual({ responsavel: null })
+    expect(g.mudancaPara!('Ana')).toEqual({ responsavel: 'Ana' })
+    expect(g.mudancaPara!(g.colunas[0].chave)).toEqual({ responsavel: null })
   })
 
   it('turma: ativas em ordem alfabética, encerradas só se tiverem gente', () => {
     const g = agrupar('turma', participantes, turmas)
     expect(g.colunas.map((c) => c.titulo)).toEqual(['Sem turma', 'Agosto', 'Outubro'])
-    expect(g.mudancaPara('t2')).toEqual({ turma_id: 't2' })
-    expect(g.mudancaPara(g.colunas[0].chave)).toEqual({ turma_id: null })
+    expect(g.mudancaPara!('t2')).toEqual({ turma_id: 't2' })
+    expect(g.mudancaPara!(g.colunas[0].chave)).toEqual({ turma_id: null })
+  })
+})
+
+describe('agrupar por faixa', () => {
+  it('separa por faixa de pontuação e não permite arrastar', () => {
+    const totais: Record<string, number> = { a: 80, b: 60, c: 59, d: 0 }
+    const g = agrupar('faixa', participantes, turmas, (p) => totais[p.id])
+    expect(g.colunas.map((c) => c.chave)).toEqual(['alta', 'media', 'baixa'])
+    expect(participantes.map(g.colunaDe)).toEqual(['alta', 'alta', 'media', 'baixa'])
+    expect(g.mudancaPara).toBeUndefined()
   })
 })
 

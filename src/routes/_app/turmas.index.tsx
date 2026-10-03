@@ -8,6 +8,7 @@ import { dataCurta } from '@/lib/utils'
 import { useParticipantes } from '@/features/participantes/queries'
 import { useAtualizarTurma, usePlantoes, useTurmas } from '@/features/turmas/queries'
 import { TurmaForm } from '@/features/turmas/turma-form'
+import { Paginacao, usePaginacao } from '@/components/paginacao'
 import { useEngajamento } from '@/features/engajamento'
 import { Dica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
@@ -64,6 +65,8 @@ function TurmasPage() {
   const ordenadas = [...(turmas.data ?? [])].sort(
     (a, b) => Number(b.ativa) - Number(a.ativa) || (b.data_imersao ?? '').localeCompare(a.data_imersao ?? ''),
   )
+
+  const { itensPagina, controles } = usePaginacao(ordenadas)
 
   const media = (r?: Resumo) => (r?.participantes ? Math.round(r.soma / r.participantes) : null)
 
@@ -197,7 +200,7 @@ function TurmasPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {ordenadas.map((t) => {
+              {itensPagina.map((t) => {
                 const r = resumo.get(t.id)
                 return (
                   <tr key={t.id} className="hover:bg-muted/50">
@@ -228,6 +231,7 @@ function TurmasPage() {
           </table>
         </div>
       )}
+      {visao === 'tabela' && <Paginacao {...controles} />}
 
       <TurmaForm
         aberto={novaAberta}
