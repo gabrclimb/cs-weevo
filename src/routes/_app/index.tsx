@@ -4,10 +4,10 @@ import { CalendarDays, Plus } from 'lucide-react'
 import { Button } from '@/components/ui'
 import type { ParticipanteRow, PlantaoRow, TarefaRow } from '@/lib/database.types'
 import type { AlertaParticipante } from '@/lib/alertas'
-import { Kanban, VisaoToggle, lerVisao, type ColunaKanban, type Visao } from '@/components/kanban'
+import { ENTRADA_VISAO, Kanban, VisaoToggle, lerVisao, type ColunaKanban, type Visao } from '@/components/kanban'
 import { aguardandoDemais, tarefaAtrasada } from '@/lib/alertas'
 import { ALERTAS } from '@/lib/config'
-import { dataCurta, hojeISO } from '@/lib/utils'
+import { cn, dataCurta, hojeISO } from '@/lib/utils'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 import { usePlantoes } from '@/features/turmas/queries'
 import { useTarefas } from '@/features/tarefas/queries'
@@ -169,7 +169,7 @@ function HojePage() {
           }
         />
       ) : (
-        <>
+        <div className={cn('space-y-8', ENTRADA_VISAO)}>
 
         {tudoEmDia && (
           <p className="rounded-xl border border-dashed px-4 py-12 text-center text-muted-foreground">
@@ -217,7 +217,7 @@ function HojePage() {
         <Secao titulo="Plantões de hoje e amanhã" total={proximosPlantoes.length} dica={DICA_COLUNA_HOJE.plantoes}>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">{proximosPlantoes.map(cardPlantao)}</div>
         </Secao>
-        </>
+        </div>
       )}
 
       <TarefaForm

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { KanbanSquare, MousePointerClick, Table2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDicas } from '@/lib/dicas'
+import { PaginacaoColuna, usePaginasPorColuna } from './paginacao'
 import { Dica } from './dica'
 
 export type ColunaKanban = {
@@ -43,6 +44,7 @@ export function Kanban<T>({
 }) {
   const { ativas } = useDicas()
   const [sobre, setSobre] = useState<string | null>(null)
+  const { fatiar } = usePaginasPorColuna()
   const porColuna = new Map<string, T[]>(colunas.map((c) => [c.chave, []]))
   for (const item of itens) porColuna.get(colunaDe(item))?.push(item)
 
@@ -53,7 +55,7 @@ export function Kanban<T>({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn('space-y-2', ENTRADA_VISAO)}>
       {ativas && onMover && ajudaMover && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MousePointerClick className="size-3.5" aria-hidden="true" />
@@ -64,6 +66,7 @@ export function Kanban<T>({
         <div className="flex min-w-full gap-3">
           {colunas.map((c) => {
             const lista = porColuna.get(c.chave) ?? []
+            const { itens: visiveis, controles } = fatiar(c.chave, lista)
             return (
               <section
                 key={c.chave}
@@ -97,7 +100,7 @@ export function Kanban<T>({
                   </Dica>
                   <span className="ml-auto text-xs font-normal text-muted-foreground">{lista.length}</span>
                 </header>
-                {lista.map((item) => (
+                {visiveis.map((item) => (
                   <div
                     key={chaveDe(item)}
                     draggable={!!onMover}
@@ -118,6 +121,7 @@ export function Kanban<T>({
                   <p className="px-1 py-4 text-center text-xs text-muted-foreground/70">{vazio}</p>
                 )}
                 {carregando && <p className="px-1 text-xs text-muted-foreground/70">Carregando…</p>}
+                <PaginacaoColuna {...controles} />
               </section>
             )
           })}
@@ -133,14 +137,24 @@ export function lerVisao(v: unknown): Visao | undefined {
   return v === 'kanban' || v === 'tabela' ? v : undefined
 }
 
-/** Alternância Tabela / Kanban. */
+/** Entrada suave da visão (tabela ou kanban) que acabou de ser escolhida. Aplicar na raiz de cada visão. */
+export const ENTRADA_VISAO = 'animate-in fade-in-0 slide-in-from-bottom-2 duration-500 ease-out motion-reduce:animate-none'
+
+/** Alternância Tabela / Kanban. O destaque desliza de uma opção para a outra. */
 export function VisaoToggle({ valor, onChange }: { valor: Visao; onChange: (v: Visao) => void }) {
   const opcoes: [Visao, string, typeof Table2][] = [
     ['tabela', 'Tabela', Table2],
     ['kanban', 'Kanban', KanbanSquare],
   ]
   return (
-    <div role="radiogroup" aria-label="Visualização" className="inline-flex h-9 rounded-md border bg-background p-0.5">
+    <div role="radiogroup" aria-label="Visualização" className="relative inline-grid h-9 grid-cols-2 rounded-md border bg-background p-0.5">
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-[5px] bg-muted shadow-xs transition-transform duration-500 ease-in-out motion-reduce:transition-none',
+          valor === 'kanban' && 'translate-x-full',
+        )}
+      />
       {opcoes.map(([v, label, Icone]) => (
         <button
           key={v}
@@ -149,8 +163,8 @@ export function VisaoToggle({ valor, onChange }: { valor: Visao; onChange: (v: V
           aria-checked={valor === v}
           onClick={() => onChange(v)}
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 text-[0.8rem] font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-            valor === v ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+            'relative inline-flex items-center justify-center gap-1.5 rounded-[5px] px-2.5 text-[0.8rem] font-medium transition-colors duration-500 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            valor === v ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Icone className="size-4" />

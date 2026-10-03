@@ -3,18 +3,18 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, CalendarPlus, CheckCircle2, ExternalLink, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge, Button, Dialog } from '@/components/ui'
 import type { PlantaoRow } from '@/lib/database.types'
-import { dataCurta, haQuanto } from '@/lib/utils'
+import { cn, dataCurta, haQuanto } from '@/lib/utils'
 import { useParticipantes } from '@/features/participantes/queries'
 import { StatusBadge } from '@/features/participantes/badges'
 import { Dica, InfoDica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
 import { useExcluirTurma, usePlantoes, useTurmas } from '@/features/turmas/queries'
 import { TurmaForm } from '@/features/turmas/turma-form'
-import { Paginacao, usePaginacao } from '@/components/paginacao'
+import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
 import { PlantaoForm } from '@/features/turmas/plantao-form'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
-import { VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
+import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
 
@@ -194,9 +194,10 @@ function TurmaPage() {
             mostrarTurma={false}
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className={cn('overflow-hidden rounded-lg border bg-card', ENTRADA_VISAO)}>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              <thead className={cn('border-b', CABECALHO_TABELA)}>
                 <tr>
                   <Th dica={DICA_COLUNA.nome}>Nome</Th>
                   <Th dica={DICA_COLUNA.status}>Status</Th>
@@ -241,9 +242,10 @@ function TurmaPage() {
                 )}
               </tbody>
             </table>
+            </div>
+            <Paginacao {...controles} className={RODAPE_TABELA} />
           </div>
         )}
-        {visao === 'tabela' && <Paginacao {...controles} />}
       </section>
 
       <TurmaForm aberto={editando} onAbertoChange={setEditando} turma={turma} />
