@@ -9,15 +9,16 @@ export const DICA_STATUS_PARTICIPANTE: Record<ParticipanteStatus, string> = {
   sem_resposta:
     'Parou de responder. O sistema sugere este status quando surge o alerta "Sem resposta", mas a mudança é sempre manual.',
   inativo:
-    'Saiu do acompanhamento. Não gera alertas, não recebe tarefas geradas para a turma e fica fora do ranking por padrão.',
+    'Saiu do acompanhamento. Não gera alertas, não recebe tarefas geradas para a turma e fica fora da página Engajamento por padrão.',
 }
 
 export const DICA_WEEVO_START: Record<WeevoStart, string> = {
   nao_avaliado: 'Ainda não foi avaliado como possível assinante da Weevo Start.',
   candidato: 'Tem perfil para a Weevo Start, mas ainda não foi repassado ao comercial.',
-  repassado_comercial: 'Já foi enviado ao comercial. Use o botão "Repassar" no Ranking para registrar o repasse.',
-  assinante: 'Assinou a Weevo Start. Fica fora do ranking por padrão.',
-  recusou: 'Recusou a Weevo Start. Fica fora do ranking por padrão.',
+  repassado_comercial: 'Já foi enviado ao comercial. Use o botão "Repassar" na página Engajamento para registrar o repasse.',
+  cadastrado: 'Fez o cadastro na Weevo Start, mas ainda não assinou. Continua na página Engajamento.',
+  assinante: 'Assinou a Weevo Start. Fica fora da página Engajamento por padrão.',
+  recusou: 'Recusou a Weevo Start. Fica fora da página Engajamento por padrão.',
 }
 
 export const DICA_STATUS_TAREFA: Record<StatusTarefa, string> = {

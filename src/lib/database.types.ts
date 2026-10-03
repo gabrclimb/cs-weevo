@@ -36,7 +36,7 @@ export type PlantaoRow = {
 }
 
 export type ParticipanteStatus = 'ativo' | 'aguardando' | 'sem_resposta' | 'inativo'
-export type WeevoStart = 'nao_avaliado' | 'candidato' | 'repassado_comercial' | 'assinante' | 'recusou'
+export type WeevoStart = 'nao_avaliado' | 'candidato' | 'repassado_comercial' | 'cadastrado' | 'assinante' | 'recusou'
 
 export type ParticipanteRow = {
   id: string
