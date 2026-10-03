@@ -111,6 +111,43 @@ export function useAtualizarParticipante() {
   })
 }
 
+/**
+ * Mesma mudança para vários participantes de uma vez.
+ * Status e Weevo Start continuam virando evento na linha do tempo de quem de fato mudou.
+ */
+export function useAtualizarEmMassa() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ participantes, mudancas }: { participantes: ParticipanteRow[]; mudancas: ParticipanteUpdate }) => {
+      const ids = participantes.map((p) => p.id)
+      const { error } = await supabase.from('weevo_participantes').update(mudancas).in('id', ids)
+      if (error) throw error
+
+      const eventos = participantes.flatMap((p) => {
+        const notas: string[] = []
+        if (mudancas.status && mudancas.status !== p.status) {
+          notas.push(`Status: ${STATUS_PARTICIPANTE[p.status].label} → ${STATUS_PARTICIPANTE[mudancas.status].label}`)
+        }
+        if (mudancas.weevo_start && mudancas.weevo_start !== p.weevo_start) {
+          notas.push(`Weevo Start: ${WEEVO_START[p.weevo_start].label} → ${WEEVO_START[mudancas.weevo_start].label}`)
+        }
+        return notas.length ? [{ participante_id: p.id, tipo: 'status_alterado' as const, nota: notas.join(' · ') }] : []
+      })
+      if (eventos.length) {
+        const { error: erroEventos } = await supabase.from('weevo_eventos').insert(eventos)
+        if (erroEventos) throw erroEventos
+      }
+      return ids.length
+    },
+    onSuccess: (n) => toast.success(`${n} participante(s) atualizado(s).`),
+    onError: (e) => toast.error(mensagemErro(e)),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: chaves.participantes })
+      qc.invalidateQueries({ queryKey: chaves.eventos })
+    },
+  })
+}
+
 export function useExcluirParticipante() {
   const qc = useQueryClient()
   return useMutation({

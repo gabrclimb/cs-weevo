@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FileUp, Plus, Search } from 'lucide-react'
-import { Button, Input, Select } from '@/components/ui'
+import { FileUp, Handshake, ListChecks, Pencil, Plus, Search, X } from 'lucide-react'
+import { Button, Input, MenuAcoes, Select } from '@/components/ui'
+import { podeRepassar, useRepassar } from '@/features/pontuacao/repassar'
 import { Th } from '@/components/dica'
+import { useDicas } from '@/lib/dicas'
+import { EdicaoMassaDialog } from '@/features/participantes/edicao-massa-dialog'
 import { DICA_COLUNA } from '@/lib/textos-dicas'
 import { StatusBadge, WeevoStartBadge } from '@/features/participantes/badges'
 import type { ParticipanteStatus, WeevoStart } from '@/lib/database.types'
@@ -17,6 +20,7 @@ import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engaja
 import { VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
+import { Paginacao, usePaginacao } from '@/components/paginacao'
 
 type Filtros = {
   q?: string
@@ -51,6 +55,10 @@ function ParticipantesPage() {
   const { porParticipante } = useEngajamento()
   const [novoAberto, setNovoAberto] = useState(false)
   const [importAberto, setImportAberto] = useState(false)
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [massaAberta, setMassaAberta] = useState(false)
+  const repassar = useRepassar()
+  const { ativas: dicasAtivas } = useDicas()
 
   const nomeTurma = useMemo(() => new Map(turmas.data?.map((t) => [t.id, t.nome])), [turmas.data])
 
@@ -72,11 +80,31 @@ function ParticipantesPage() {
     })
   }, [participantes.data, filtros, porParticipante])
 
+  const { itensPagina, controles } = usePaginacao(filtrados, { ...filtros, visao: undefined, agrupar: undefined })
+
+  // Só conta quem está selecionado e continua visível com os filtros atuais.
+  const selecionadosLista = filtrados.filter((p) => selecionados.has(p.id))
+  const repassaveis = selecionadosLista.filter(podeRepassar)
+  const paginaToda = itensPagina.length > 0 && itensPagina.every((p) => selecionados.has(p.id))
+  const paginaParcial = !paginaToda && itensPagina.some((p) => selecionados.has(p.id))
+
+  function marcar(ids: string[], marcado: boolean) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      for (const id of ids) {
+        if (marcado) novo.add(id)
+        else novo.delete(id)
+      }
+      return novo
+    })
+  }
+
   const setFiltro = (mudanca: Partial<Filtros>) =>
     navigate({ search: (atual) => ({ ...atual, ...mudanca }), replace: true })
 
   const temFiltro = !!(filtros.q || filtros.turma || filtros.status || filtros.ws || filtros.alerta || filtros.resp)
-  const visao = filtros.visao ?? 'tabela'
+  // Participantes abre em kanban; a tabela fica guardada na URL como visao=tabela.
+  const visao = filtros.visao ?? 'kanban'
   const agrupamento = filtros.agrupar ?? 'status'
   const responsaveis = [...new Set((participantes.data ?? []).flatMap((p) => (p.responsavel ? [p.responsavel] : [])))].sort()
 
@@ -95,7 +123,7 @@ function ParticipantesPage() {
           {visao === 'kanban' && (
             <AgruparPor valor={agrupamento} onChange={(a) => setFiltro({ agrupar: a === 'status' ? undefined : a })} />
           )}
-          <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'tabela' ? undefined : v })} />
+          <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'kanban' ? undefined : v })} />
           <Button variante="secundario" onClick={() => setImportAberto(true)}>
             <FileUp className="size-4" />
             Importar CSV
@@ -188,73 +216,142 @@ function ParticipantesPage() {
           carregando={participantes.isLoading}
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full text-sm">
-            <thead className="border-b text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-              <tr>
-                <Th dica={DICA_COLUNA.nome}>Nome</Th>
-                <Th dica={DICA_COLUNA.turma}>Turma</Th>
-                <Th dica={DICA_COLUNA.responsavel}>Responsável</Th>
-                <Th dica={DICA_COLUNA.status}>Status</Th>
-                <Th dica={DICA_COLUNA.weevoStart}>Weevo Start</Th>
-                <Th dica={DICA_COLUNA.ultimoContato}>Último contato</Th>
-                <Th dica={DICA_COLUNA.ultimaResposta}>Última resposta</Th>
-                <Th dica={DICA_COLUNA.alertas}>Alertas</Th>
-                <Th dica={DICA_COLUNA.pontuacao} className="text-right">
-                  Pontuação
-                </Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filtrados.map((p) => (
-                <tr key={p.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3">
-                    <Link
-                      to="/participantes/$id"
-                      params={{ id: p.id }}
-                      className="font-medium text-foreground hover:text-primary hover:underline"
-                    >
-                      {p.nome}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {[p.apelido && `"${p.apelido}"`, formatarTelefone(p.telefone), p.empresa]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-foreground">
-                    {p.turma_id ? nomeTurma.get(p.turma_id) : <span className="text-muted-foreground/70">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-foreground">{p.responsavel ?? <span className="text-muted-foreground/70">—</span>}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={p.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <WeevoStartBadge valor={p.weevo_start} />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultimo_contato_em)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultima_resposta_em)}</td>
-                  <td className="px-4 py-3">
-                    <AlertasBadges alertas={porParticipante.get(p.id)?.alertas ?? []} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <PontuacaoBadge pontuacao={porParticipante.get(p.id)?.pontuacao} />
-                  </td>
-                </tr>
-              ))}
-              {participantes.data && filtrados.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
-                    {participantes.data.length === 0
-                      ? 'Nenhum participante cadastrado. Cadastre manualmente ou importe um CSV.'
-                      : 'Nenhum participante com esses filtros.'}
-                  </td>
-                </tr>
+        <>
+          {selecionadosLista.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+              <span className="font-medium">{selecionadosLista.length} selecionado(s)</span>
+              {selecionadosLista.length < filtrados.length && (
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => marcar(filtrados.map((p) => p.id), true)}
+                >
+                  Selecionar todos os {filtrados.length}
+                  {temFiltro ? ' filtrados' : ''}
+                </button>
               )}
-            </tbody>
-          </table>
-        </div>
+              <div className="ml-auto">
+                <MenuAcoes
+                  rotulo={`Ações (${selecionadosLista.length})`}
+                  icone={ListChecks}
+                  acoes={[
+                    {
+                      label: 'Alterar informações…',
+                      icone: Pencil,
+                      descricao: 'Status, Weevo Start, turma ou responsável',
+                      onSelect: () => setMassaAberta(true),
+                    },
+                    {
+                      label: 'Repassar ao comercial',
+                      icone: Handshake,
+                      descricao: repassaveis.length
+                        ? repassaveis.length === selecionadosLista.length
+                          ? `${repassaveis.length} participante(s)`
+                          : `${repassaveis.length} de ${selecionadosLista.length}: só quem está “Não avaliado” ou “Candidato”`
+                        : 'Nenhum selecionado pode ser repassado (só “Não avaliado” ou “Candidato”)',
+                      disabled: !repassaveis.length || repassar.isPending,
+                      onSelect: () => repassar.mutate(repassaveis, { onSuccess: () => setSelecionados(new Set()) }),
+                    },
+                    'separador',
+                    { label: 'Limpar seleção', icone: X, onSelect: () => setSelecionados(new Set()) },
+                  ]}
+                />
+              </div>
+            </div>
+          ) : (
+            dicasAtivas &&
+            filtrados.length > 1 && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ListChecks className="size-3.5 shrink-0" aria-hidden="true" />
+                Marque vários participantes na primeira coluna para alterar informações ou repassar ao comercial de uma
+                vez, pelo botão Ações. Dica: filtre antes e use “Selecionar todos”.
+              </p>
+            )
+          )}
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <table className="w-full text-sm">
+              <thead className="border-b text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                <tr>
+                  <th className="w-10 px-4 py-3">
+                    <CaixaSelecao
+                      aria-label="Selecionar todos desta página"
+                      checked={paginaToda}
+                      indeterminate={paginaParcial}
+                      onChange={(marcado) => marcar(itensPagina.map((p) => p.id), marcado)}
+                    />
+                  </th>
+                  <Th dica={DICA_COLUNA.nome}>Nome</Th>
+                  <Th dica={DICA_COLUNA.turma}>Turma</Th>
+                  <Th dica={DICA_COLUNA.responsavel}>Responsável</Th>
+                  <Th dica={DICA_COLUNA.status}>Status</Th>
+                  <Th dica={DICA_COLUNA.weevoStart}>Weevo Start</Th>
+                  <Th dica={DICA_COLUNA.ultimoContato}>Último contato</Th>
+                  <Th dica={DICA_COLUNA.ultimaResposta}>Última resposta</Th>
+                  <Th dica={DICA_COLUNA.alertas}>Alertas</Th>
+                  <Th dica={DICA_COLUNA.pontuacao} className="text-right">
+                    Pontuação
+                  </Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {itensPagina.map((p) => (
+                  <tr key={p.id} className={selecionados.has(p.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}>
+                    <td className="px-4 py-3">
+                      <CaixaSelecao
+                        aria-label={`Selecionar ${p.nome}`}
+                        checked={selecionados.has(p.id)}
+                        onChange={(marcado) => marcar([p.id], marcado)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        to="/participantes/$id"
+                        params={{ id: p.id }}
+                        className="font-medium text-foreground hover:text-primary hover:underline"
+                      >
+                        {p.nome}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">
+                        {[p.apelido && `"${p.apelido}"`, formatarTelefone(p.telefone), p.empresa]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      {p.turma_id ? nomeTurma.get(p.turma_id) : <span className="text-muted-foreground/70">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{p.responsavel ?? <span className="text-muted-foreground/70">—</span>}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={p.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <WeevoStartBadge valor={p.weevo_start} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultimo_contato_em)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultima_resposta_em)}</td>
+                    <td className="px-4 py-3">
+                      <AlertasBadges alertas={porParticipante.get(p.id)?.alertas ?? []} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <PontuacaoBadge pontuacao={porParticipante.get(p.id)?.pontuacao} />
+                    </td>
+                  </tr>
+                ))}
+                {participantes.data && filtrados.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
+                      {participantes.data.length === 0
+                        ? 'Nenhum participante cadastrado. Cadastre manualmente ou importe um CSV.'
+                        : 'Nenhum participante com esses filtros.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+      {visao === 'tabela' && <Paginacao {...controles} />}
 
       <ParticipanteForm
         aberto={novoAberto}
@@ -262,6 +359,42 @@ function ParticipantesPage() {
         onSalvo={(p) => navigate({ to: '/participantes/$id', params: { id: p.id } })}
       />
       <ImportParticipantesDialog aberto={importAberto} onAbertoChange={setImportAberto} />
+      <EdicaoMassaDialog
+        aberto={massaAberta}
+        onAbertoChange={setMassaAberta}
+        participantes={selecionadosLista}
+        turmas={turmas.data ?? []}
+        responsaveis={responsaveis}
+        onConcluido={() => setSelecionados(new Set())}
+      />
     </div>
+  )
+}
+
+/** Checkbox com estado "parcial" (alguns da página marcados). */
+function CaixaSelecao({
+  checked,
+  indeterminate = false,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  checked: boolean
+  indeterminate?: boolean
+  onChange: (marcado: boolean) => void
+  'aria-label': string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={ariaLabel}
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="size-4 cursor-pointer accent-primary"
+    />
   )
 }
