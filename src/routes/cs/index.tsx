@@ -18,7 +18,7 @@ import { AlertasBadges, useEngajamento } from '@/features/engajamento'
 import { InfoDica } from '@/components/dica'
 import { DICA_COLUNA_HOJE } from '@/lib/textos-dicas'
 
-export const Route = createFileRoute('/_app/')({
+export const Route = createFileRoute('/cs/')({
   validateSearch: (s: Record<string, unknown>): { visao?: Visao } => ({ visao: lerVisao(s.visao) }),
   component: HojePage,
 })
@@ -97,7 +97,7 @@ function HojePage() {
   const cardPlantao = (pl: PlantaoRow) => (
     <Link
       key={pl.id}
-      to="/turmas/$id/plantao/$numero"
+      to="/cs/turmas/$id/plantao/$numero"
       params={{ id: pl.turma_id, numero: String(pl.numero) }}
       className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm hover:border-primary"
     >
@@ -158,7 +158,7 @@ function HojePage() {
               cardPlantao(i.pl)
             ) : (
               <article className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs">
-                <Link to="/participantes/$id" params={{ id: i.p.id }} className="font-medium hover:text-primary hover:underline">
+                <Link to="/cs/participantes/$id" params={{ id: i.p.id }} className="font-medium hover:text-primary hover:underline">
                   {i.p.nome}
                 </Link>
                 {i.p.turma_id && <div className="text-xs text-muted-foreground">{turmaPorId.get(i.p.turma_id)?.nome}</div>}
@@ -203,7 +203,7 @@ function HojePage() {
           <ul className="divide-y rounded-lg border bg-card">
             {comAlerta.map(({ p, alertas }) => (
               <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-                <Link to="/participantes/$id" params={{ id: p.id }} className="font-medium hover:text-primary hover:underline">
+                <Link to="/cs/participantes/$id" params={{ id: p.id }} className="font-medium hover:text-primary hover:underline">
                   {p.nome}
                 </Link>
                 <span className="text-xs text-muted-foreground">{p.turma_id && turmaPorId.get(p.turma_id)?.nome}</span>

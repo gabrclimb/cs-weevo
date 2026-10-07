@@ -5,7 +5,7 @@ import { ALERTAS, FAIXAS_PONTUACAO, PESOS } from '@/lib/config'
 import { calcularPontuacao } from '@/lib/pontuacao'
 import { cn } from '@/lib/utils'
 
-export const Route = createFileRoute('/_app/ajuda')({
+export const Route = createFileRoute('/cs/ajuda')({
   component: AjudaPage,
 })
 

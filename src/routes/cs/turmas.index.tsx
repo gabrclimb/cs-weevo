@@ -22,7 +22,7 @@ type AgrupamentoTurma = keyof typeof AGRUPAMENTOS_TURMA
 
 type Busca = { visao?: Visao; agrupar?: AgrupamentoTurma }
 
-export const Route = createFileRoute('/_app/turmas/')({
+export const Route = createFileRoute('/cs/turmas/')({
   validateSearch: (s: Record<string, unknown>): Busca => ({
     visao: lerVisao(s.visao),
     agrupar: typeof s.agrupar === 'string' && s.agrupar in AGRUPAMENTOS_TURMA ? (s.agrupar as AgrupamentoTurma) : undefined,
@@ -145,7 +145,7 @@ function TurmasPage() {
               <article className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs">
                 <div className="flex items-start justify-between gap-2">
                   <Link
-                    to="/turmas/$id"
+                    to="/cs/turmas/$id"
                     params={{ id: t.id }}
                     draggable={false}
                     className="font-medium hover:text-primary hover:underline"
@@ -206,7 +206,7 @@ function TurmasPage() {
                 return (
                   <tr key={t.id} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
-                      <Link to="/turmas/$id" params={{ id: t.id }} className="font-medium hover:text-primary hover:underline">
+                      <Link to="/cs/turmas/$id" params={{ id: t.id }} className="font-medium hover:text-primary hover:underline">
                         {t.nome}
                       </Link>
                       <div className="mt-0.5 flex gap-1">
@@ -238,7 +238,7 @@ function TurmasPage() {
       <TurmaForm
         aberto={novaAberta}
         onAbertoChange={setNovaAberta}
-        onSalva={(t) => navigate({ to: '/turmas/$id', params: { id: t.id } })}
+        onSalva={(t) => navigate({ to: '/cs/turmas/$id', params: { id: t.id } })}
       />
     </div>
   )

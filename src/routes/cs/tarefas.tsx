@@ -33,7 +33,7 @@ type Filtros = {
   periodo?: Periodo
 }
 
-export const Route = createFileRoute('/_app/tarefas')({
+export const Route = createFileRoute('/cs/tarefas')({
   validateSearch: (s: Record<string, unknown>): Filtros => ({
     tarefa: typeof s.tarefa === 'string' ? s.tarefa : undefined,
     q: typeof s.q === 'string' && s.q ? s.q : undefined,

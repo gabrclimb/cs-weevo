@@ -13,7 +13,7 @@ import {
   useTemplates,
 } from '@/features/templates/queries'
 
-export const Route = createFileRoute('/_app/templates')({
+export const Route = createFileRoute('/cs/templates')({
   component: TemplatesPage,
 })
 

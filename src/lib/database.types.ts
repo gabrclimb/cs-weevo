@@ -120,6 +120,8 @@ export type EventoRow = {
   created_at: string
 }
 
+export type DepoimentoRow = { chave: string; video_path: string | null; updated_at: string }
+
 export type TemplateCategoriaRow = { id: string; nome: string; ordem: number; created_at: string }
 
 export type TemplateRow = {
@@ -143,6 +145,7 @@ export type Database = {
       weevo_eventos: Tabela<EventoRow, 'participante_id' | 'tipo'>
       message_template_categories: Tabela<TemplateCategoriaRow, 'nome'>
       message_templates: Tabela<TemplateRow, 'titulo' | 'conteudo'>
+      weevo_depoimentos: Tabela<DepoimentoRow, 'chave'>
     }
     Views: { [_ in never]: never }
     Functions: { is_admin: { Args: Record<string, never>; Returns: boolean } }

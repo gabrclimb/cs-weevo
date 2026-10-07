@@ -119,7 +119,7 @@ export function ParticipantesKanban({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <Link
-                  to="/participantes/$id"
+                  to="/cs/participantes/$id"
                   params={{ id: p.id }}
                   draggable={false}
                   className="font-medium text-foreground hover:text-primary hover:underline"

@@ -8,20 +8,20 @@ import { useRealtime } from '@/lib/realtime'
 import { ThemeToggle } from '@/lib/tema'
 import { DicasToggle } from '@/lib/dicas'
 
-export const Route = createFileRoute('/_app')({
+export const Route = createFileRoute('/cs')({
   ssr: false,
   component: AppLayout,
 })
 
 const NAV = [
-  { to: '/', label: 'Hoje', icon: CalendarCheck },
-  { to: '/engajamento', label: 'Engajamento', icon: Trophy },
-  { to: '/tarefas', label: 'Tarefas', icon: ListTodo },
-  { to: '/participantes', label: 'Participantes', icon: Users },
-  { to: '/turmas', label: 'Turmas', icon: UsersRound },
-  { to: '/templates', label: 'Templates', icon: MessageSquareText },
-  { to: '/configuracoes', label: 'Configurações', icon: Settings },
-  { to: '/ajuda', label: 'Ajuda', icon: CircleHelp },
+  { to: '/cs', label: 'Hoje', icon: CalendarCheck },
+  { to: '/cs/engajamento', label: 'Engajamento', icon: Trophy },
+  { to: '/cs/tarefas', label: 'Tarefas', icon: ListTodo },
+  { to: '/cs/participantes', label: 'Participantes', icon: Users },
+  { to: '/cs/turmas', label: 'Turmas', icon: UsersRound },
+  { to: '/cs/templates', label: 'Templates', icon: MessageSquareText },
+  { to: '/cs/configuracoes', label: 'Configurações', icon: Settings },
+  { to: '/cs/ajuda', label: 'Ajuda', icon: CircleHelp },
 ] as const
 
 function AppLayout() {
@@ -30,7 +30,7 @@ function AppLayout() {
   useRealtime()
 
   useEffect(() => {
-    if (!carregando && !session) navigate({ to: '/login' })
+    if (!carregando && !session) navigate({ to: '/cs/login' })
   }, [carregando, session, navigate])
 
   // A policy de weevo_admins deixa cada usuário ver só a própria linha.
@@ -71,7 +71,7 @@ function AppLayout() {
             <Link
               key={to}
               to={to}
-              activeOptions={{ exact: to === '/' }}
+              activeOptions={{ exact: to === '/cs' }}
               className="flex h-10 items-center gap-2.5 rounded-xl border border-transparent px-3 text-sm text-muted-foreground transition-all outline-none hover:border-border hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
               activeProps={{ className: 'border-border bg-muted font-medium text-foreground shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]' }}
             >

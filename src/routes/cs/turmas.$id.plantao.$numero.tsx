@@ -10,7 +10,7 @@ import { useAlternarPresenca, usePlantoes, useSalvarPlantao, useTurmas } from '@
 import { useTodosEventos } from '@/features/eventos/queries'
 import { useCriarTarefas, useTarefas } from '@/features/tarefas/queries'
 
-export const Route = createFileRoute('/_app/turmas/$id/plantao/$numero')({
+export const Route = createFileRoute('/cs/turmas/$id/plantao/$numero')({
   component: PlantaoPage,
 })
 
@@ -86,7 +86,7 @@ function PlantaoPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/turmas/$id" params={{ id }} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+      <Link to="/cs/turmas/$id" params={{ id }} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         Turma {turma.nome}
       </Link>

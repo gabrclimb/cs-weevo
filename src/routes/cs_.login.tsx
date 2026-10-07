@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { Button, Campo, Input, InputSenha } from '@/components/ui'
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute('/cs_/login')({
   ssr: false,
   component: LoginPage,
 })
@@ -18,7 +18,7 @@ function LoginPage() {
   const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
-    if (session) navigate({ to: '/' })
+    if (session) navigate({ to: '/cs' })
   }, [session, navigate])
 
   async function entrar(e: FormEvent) {

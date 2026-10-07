@@ -150,7 +150,7 @@ export function ExplicacaoPontuacao({
 
       <p className="text-xs text-muted-foreground md:col-span-2">
         Total {p.total} = {p.implementou} + {p.plantoes} + {p.responsividade} + {p.recencia} + {p.grupo}.{' '}
-        <Link to="/ajuda" className="text-primary hover:underline">
+        <Link to="/cs/ajuda" className="text-primary hover:underline">
           Ver todas as regras
         </Link>
       </p>

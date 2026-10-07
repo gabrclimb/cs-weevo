@@ -37,7 +37,7 @@ import { Dica, InfoDica } from '@/components/dica'
 import { DICA_COLUNA, DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { PESOS } from '@/lib/config'
 
-export const Route = createFileRoute('/_app/participantes/$id')({
+export const Route = createFileRoute('/cs/participantes/$id')({
   component: FichaParticipante,
 })
 
@@ -77,7 +77,7 @@ function FichaParticipante() {
     return (
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">Participante não encontrado.</p>
-        <Link to="/participantes" className="text-sm text-primary underline">
+        <Link to="/cs/participantes" className="text-sm text-primary underline">
           Voltar para a lista
         </Link>
       </div>
@@ -116,7 +116,7 @@ function FichaParticipante() {
 
   return (
     <div className="space-y-6">
-      <Link to="/participantes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+      <Link to="/cs/participantes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         Participantes
       </Link>
@@ -131,7 +131,7 @@ function FichaParticipante() {
             </h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {turma ? (
-                <Link to="/turmas/$id" params={{ id: turma.id }} className="hover:text-primary hover:underline">
+                <Link to="/cs/turmas/$id" params={{ id: turma.id }} className="hover:text-primary hover:underline">
                   Turma {turma.nome}
                 </Link>
               ) : (
@@ -323,7 +323,7 @@ function FichaParticipante() {
                     </div>
                     {e.nota && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{e.nota}</p>}
                     {tarefa && (
-                      <Link to="/tarefas" search={{ tarefa: tarefa.id }} className="mt-1 inline-block text-xs text-primary hover:underline">
+                      <Link to="/cs/tarefas" search={{ tarefa: tarefa.id }} className="mt-1 inline-block text-xs text-primary hover:underline">
                         Tarefa: {tarefa.titulo}
                       </Link>
                     )}
@@ -398,7 +398,7 @@ function FichaParticipante() {
           <Button
             variante="perigo"
             disabled={excluir.isPending}
-            onClick={() => excluir.mutate(p.id, { onSuccess: () => navigate({ to: '/participantes' }) })}
+            onClick={() => excluir.mutate(p.id, { onSuccess: () => navigate({ to: '/cs/participantes' }) })}
           >
             Excluir
           </Button>

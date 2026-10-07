@@ -18,7 +18,7 @@ import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/k
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
 
-export const Route = createFileRoute('/_app/turmas/$id/')({
+export const Route = createFileRoute('/cs/turmas/$id/')({
   validateSearch: (s: Record<string, unknown>): { visao?: Visao; agrupar?: Agrupamento } => {
     const agrupar = lerAgrupamento(s.agrupar)
     return { visao: lerVisao(s.visao), agrupar: agrupar === 'turma' ? undefined : agrupar }
@@ -66,7 +66,7 @@ function TurmaPage() {
     return (
       <p className="text-sm text-muted-foreground">
         Turma não encontrada.{' '}
-        <Link to="/turmas" className="text-primary underline">
+        <Link to="/cs/turmas" className="text-primary underline">
           Voltar
         </Link>
       </p>
@@ -74,7 +74,7 @@ function TurmaPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+      <Link to="/cs/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
         <ArrowLeft className="size-4" />
         Turmas
       </Link>
@@ -147,7 +147,7 @@ function TurmaPage() {
                     )}
                     <div className="flex gap-1.5 pt-1">
                       <Link
-                        to="/turmas/$id/plantao/$numero"
+                        to="/cs/turmas/$id/plantao/$numero"
                         params={{ id, numero: String(n) }}
                         className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                       >
@@ -215,7 +215,7 @@ function TurmaPage() {
                   return (
                     <tr key={p.id} className="hover:bg-muted/50">
                       <td className="px-4 py-2.5">
-                        <Link to="/participantes/$id" params={{ id: p.id }} className="font-medium hover:text-primary hover:underline">
+                        <Link to="/cs/participantes/$id" params={{ id: p.id }} className="font-medium hover:text-primary hover:underline">
                           {p.nome}
                         </Link>
                       </td>
@@ -273,7 +273,7 @@ function TurmaPage() {
           <Button variante="secundario" onClick={() => setExcluindo(false)}>
             Cancelar
           </Button>
-          <Button variante="perigo" onClick={() => excluir.mutate(id, { onSuccess: () => navigate({ to: '/turmas' }) })}>
+          <Button variante="perigo" onClick={() => excluir.mutate(id, { onSuccess: () => navigate({ to: '/cs/turmas' }) })}>
             Excluir
           </Button>
         </div>

@@ -65,11 +65,11 @@ export function TarefaCard({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {participante ? (
-          <Link to="/participantes/$id" params={{ id: participante.id }} className="font-medium text-primary hover:underline">
+          <Link to="/cs/participantes/$id" params={{ id: participante.id }} className="font-medium text-primary hover:underline">
             {participante.nome}
           </Link>
         ) : turma ? (
-          <Link to="/turmas/$id" params={{ id: turma.id }} className="font-medium text-primary hover:underline">
+          <Link to="/cs/turmas/$id" params={{ id: turma.id }} className="font-medium text-primary hover:underline">
             Turma {turma.nome}
           </Link>
         ) : t.para_quem ? (

@@ -43,7 +43,7 @@ type Filtros = {
   agrupar?: Agrupamento
 }
 
-export const Route = createFileRoute('/_app/participantes/')({
+export const Route = createFileRoute('/cs/participantes/')({
   validateSearch: (s: Record<string, unknown>): Filtros => ({
     q: typeof s.q === 'string' && s.q ? s.q : undefined,
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
@@ -402,7 +402,7 @@ function ParticipantesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        to="/participantes/$id"
+                        to="/cs/participantes/$id"
                         params={{ id: p.id }}
                         className="font-medium text-foreground hover:text-primary hover:underline"
                       >
@@ -457,7 +457,7 @@ function ParticipantesPage() {
       <ParticipanteForm
         aberto={novoAberto}
         onAbertoChange={setNovoAberto}
-        onSalvo={(p) => navigate({ to: '/participantes/$id', params: { id: p.id } })}
+        onSalvo={(p) => navigate({ to: '/cs/participantes/$id', params: { id: p.id } })}
       />
       <ImportParticipantesDialog aberto={importAberto} onAbertoChange={setImportAberto} />
       <EdicaoMassaDialog

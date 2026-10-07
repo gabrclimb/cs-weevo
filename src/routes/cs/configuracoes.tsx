@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Pencil, Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge, Button, Campo, Dialog, Input } from '@/components/ui'
@@ -8,14 +8,24 @@ import { CABECALHO_TABELA } from '@/components/paginacao'
 import { normalize } from '@/lib/csv'
 import { cn } from '@/lib/utils'
 import { useParticipantes, useTrocarResponsavel } from '@/features/participantes/queries'
+import { DepoimentosLp } from '@/features/lp/depoimentos-admin'
 
-export const Route = createFileRoute('/_app/configuracoes')({
+type Aba = 'responsaveis' | 'videos'
+const ABAS: { chave: Aba; rotulo: string }[] = [
+  { chave: 'responsaveis', rotulo: 'Responsáveis' },
+  { chave: 'videos', rotulo: 'Vídeos da página inicial' },
+]
+
+export const Route = createFileRoute('/cs/configuracoes')({
+  validateSearch: (s: Record<string, unknown>): { aba?: Aba } => ({ aba: s.aba === 'videos' ? 'videos' : undefined }),
   component: ConfiguracoesPage,
 })
 
 type Responsavel = { nome: string; total: number; parecidoCom?: string }
 
 function ConfiguracoesPage() {
+  const aba: Aba = Route.useSearch().aba ?? 'responsaveis'
+  const navigate = useNavigate({ from: Route.fullPath })
   const participantes = useParticipantes()
   const trocar = useTrocarResponsavel()
   const [renomeando, setRenomeando] = useState<Responsavel | null>(null)
@@ -48,6 +58,25 @@ function ConfiguracoesPage() {
         <p className="text-sm text-muted-foreground">Ajustes gerais do sistema.</p>
       </div>
 
+      <div role="tablist" aria-label="Seções de configurações" className="flex gap-1 border-b">
+        {ABAS.map((a) => (
+          <button
+            key={a.chave}
+            type="button"
+            role="tab"
+            aria-selected={aba === a.chave}
+            onClick={() => navigate({ search: { aba: a.chave === 'responsaveis' ? undefined : a.chave }, replace: true })}
+            className={cn(
+              '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              aba === a.chave ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'responsaveis' && (
       <section className="space-y-3">
         <div>
           <h2 className="flex items-center gap-1.5 text-lg font-semibold">
@@ -92,7 +121,7 @@ function ConfiguracoesPage() {
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         <Link
-                          to="/participantes"
+                          to="/cs/participantes"
                           search={{ resp: r.nome }}
                           className="text-primary hover:underline"
                           title="Ver os participantes deste responsável"
@@ -138,6 +167,9 @@ function ConfiguracoesPage() {
           </div>
         )}
       </section>
+      )}
+
+      {aba === 'videos' && <DepoimentosLp />}
 
       <RenomearDialog
         responsavel={renomeando}

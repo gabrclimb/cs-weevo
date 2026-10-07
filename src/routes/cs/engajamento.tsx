@@ -39,7 +39,7 @@ export type BuscaEngajamento = {
   agrupar?: Agrupamento
 }
 
-export const Route = createFileRoute('/_app/engajamento')({
+export const Route = createFileRoute('/cs/engajamento')({
   validateSearch: (s: Record<string, unknown>): BuscaEngajamento => ({
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
     q: typeof s.q === 'string' && s.q ? s.q : undefined,
@@ -202,7 +202,7 @@ function EngajamentoPage() {
         <p className="text-sm text-muted-foreground">
           Quem está mais engajado, presença nos plantões e como cada pontuação foi calculada. Clique numa linha para ver
           os registros que contaram.{' '}
-          <Link to="/ajuda" className="text-primary hover:underline">
+          <Link to="/cs/ajuda" className="text-primary hover:underline">
             Como funciona a pontuação
           </Link>
         </p>
@@ -392,7 +392,7 @@ function EngajamentoPage() {
                         <td className="px-2 py-2.5 text-muted-foreground tabular-nums">{inicio + i + 1}</td>
                         <td className="px-3 py-2.5">
                           <Link
-                            to="/participantes/$id"
+                            to="/cs/participantes/$id"
                             params={{ id: p.id }}
                             onClick={parar}
                             className="font-medium hover:text-primary hover:underline"
@@ -433,7 +433,7 @@ function EngajamentoPage() {
                               aberto={aberto}
                               podeRepassar={elegivel && !repassar.isPending}
                               onRepassar={() => repassar.mutate([p])}
-                              onAbrirFicha={() => navigate({ to: '/participantes/$id', params: { id: p.id } })}
+                              onAbrirFicha={() => navigate({ to: '/cs/participantes/$id', params: { id: p.id } })}
                               onNovaTarefa={() => setTarefaPara(p)}
                               onVerCalculo={() => alternarAberto(p.id)}
                             />
