@@ -10,7 +10,7 @@ grant usage on schema public to anon, authenticated, service_role;
 -- anon e authenticated: como no projeto remoto (tabelas novas expostas; a fase 0 revoga).
 -- service_role: como no Supabase local do CI, sem GRANT automático, para pegar tabela nova sem GRANT explícito.
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated;
-alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on functions to anon, authenticated;
 alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated;
 
 -- auth --------------------------------------------------------------------
