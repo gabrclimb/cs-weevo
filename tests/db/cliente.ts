@@ -21,16 +21,10 @@ export function arquivosMigration(): string[] {
     .sort()
 }
 
-/** Banco novo no PGlite: stubs do Supabase (se houver) + todas as migrations, em ordem. */
+/** Banco novo no PGlite: stubs do Supabase + todas as migrations, em ordem. */
 async function pglite(): Promise<ClienteDb> {
   const db = new PGlite()
-  let stubs: string | null = null
-  try {
-    stubs = readFileSync(STUBS, 'utf8')
-  } catch {
-    stubs = null
-  }
-  if (stubs) await db.exec(stubs)
+  await db.exec(readFileSync(STUBS, 'utf8'))
   for (const arquivo of arquivosMigration()) {
     try {
       await db.exec(readFileSync(join(MIGRATIONS, arquivo), 'utf8'))
