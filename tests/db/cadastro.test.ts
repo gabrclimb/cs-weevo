@@ -40,3 +40,56 @@ describe('registrado_por', () => {
     })
   })
 })
+
+describe('participantes', () => {
+  async function turma(tx: import('./transacao').Transacao, nome = 'Turma Teste') {
+    const [t] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ($1, 'aberta', 'plantao') returning id`, [nome])
+    return t.id
+  }
+  const inserir = (tx: import('./transacao').Transacao, turmaId: string, extra: Record<string, unknown> = {}) => {
+    const campos = { nome: 'Pessoa Fictícia', turma_imersao_id: turmaId, ...extra }
+    const cols = Object.keys(campos)
+    return tx.erro(
+      `insert into public.participantes (${cols.join(', ')}) values (${cols.map((_, i) => `$${i + 1}`).join(', ')})`,
+      Object.values(campos),
+    )
+  }
+
+  it('telefone precisa estar em E.164 do Brasil', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      expect(await inserir(tx, t, { telefone: '+5584999990000' })).toBeNull()
+      expect((await inserir(tx, t, { telefone: '84 99999-0000' })) ?? 'sem erro').toMatch(/check constraint/)
+    })
+  })
+
+  it('telefone e e-mail são únicos (e-mail sem diferenciar maiúsculas)', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      expect(await inserir(tx, t, { telefone: '+5584999990000', email: 'pessoa@exemplo.invalid' })).toBeNull()
+      expect((await inserir(tx, t, { telefone: '+5584999990000' })) ?? 'sem erro').toMatch(/duplicate key/)
+      expect((await inserir(tx, t, { email: 'PESSOA@exemplo.invalid' })) ?? 'sem erro').toMatch(/duplicate key/)
+      expect(await inserir(tx, t)).toBeNull() // sem telefone nem e-mail, pode repetir
+      expect(await inserir(tx, t)).toBeNull()
+    })
+  })
+
+  it('situacao nasce ativo e só aceita ativo ou fora_do_suporte', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      expect(await inserir(tx, t)).toBeNull()
+      expect(await tx.query(`select situacao from public.participantes`)).toEqual([{ situacao: 'ativo' }])
+      expect(await inserir(tx, t, { situacao: 'fora_do_suporte' })).toBeNull()
+      expect((await inserir(tx, t, { situacao: 'inativo' })) ?? 'sem erro').toMatch(/check constraint/)
+    })
+  })
+
+  it('dias da imersão não se repetem na turma', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      expect(await tx.erro(`insert into public.imersao_dias (turma_id, data, ordem) values ($1, '2026-10-01', 1), ($1, '2026-10-02', 2)`, [t])).toBeNull()
+      expect((await tx.erro(`insert into public.imersao_dias (turma_id, data, ordem) values ($1, '2026-10-03', 1)`, [t])) ?? 'sem erro').toMatch(/duplicate key/)
+      expect((await tx.erro(`insert into public.imersao_dias (turma_id, data, ordem) values ($1, '2026-10-01', 3)`, [t])) ?? 'sem erro').toMatch(/duplicate key/)
+    })
+  })
+})
