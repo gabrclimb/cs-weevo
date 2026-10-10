@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cenarioEncontro, estado, registrar, veioCompleto } from './cenarios'
+import { cenarioEncontro, estado, motivo, registrar, veioCompleto } from './cenarios'
 import { criarCliente, type ClienteDb } from './cliente'
 import { transacao } from './transacao'
 
@@ -41,6 +41,32 @@ describe('validação do registro', () => {
       const dados = { ...(await veioCompleto(tx, c)), ...mudanca }
       await tx.como('authenticated', c.csA)
       expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+})
+
+describe('modalidade', () => {
+  it('é obrigatória quando a presença conta ("Veio")', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = { ...(await veioCompleto(tx, c)), modalidade: null }
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/modalidade/)
+    })
+  })
+
+  it('não é exigida quando a presença não conta ("Não veio")', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = {
+        sessao_id: c.sessao,
+        participante_id: c.pessoas[0],
+        presenca_id: await estado(tx, 'nao_veio'),
+        motivo_id: await motivo(tx, 'falta', 'Viagem'),
+        motivo_texto: 'Viajou a trabalho.',
+      }
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro).toBeNull()
     })
   })
 })
