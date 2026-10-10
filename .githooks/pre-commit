@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node scripts/verificar-env-example.ts

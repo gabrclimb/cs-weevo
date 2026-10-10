@@ -9,9 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "db:types": "supabase gen types typescript --project-id viztyypoqlryemlcacjx --schema public > src/lib/database.types.ts",
+    "db:types": "ctx sb gen types typescript --project-id viztyypoqlryemlcacjx --schema public > src/lib/database.types.ts",
     "test:db": "vitest run --project db",
-    "test:db:supabase": "DB_TEST_TARGET=supabase vitest run --project db"
+    "test:db:supabase": "DB_TEST_TARGET=supabase vitest run --project db",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
