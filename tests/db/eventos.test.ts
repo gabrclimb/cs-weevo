@@ -110,3 +110,72 @@ describe('motivo e fase por tipo', () => {
     })
   })
 })
+
+const anularEvento = (tx: Transacao, id: string, motivoId: string | null, texto: string) =>
+  tx.resultado<{ id: string }>(`select public.anular_evento($1, $2, $3) as id`, [id, motivoId, texto])
+const corrigirEvento = (tx: Transacao, id: string, dados: Record<string, unknown>) =>
+  tx.resultado<{ id: string }>(`select public.corrigir_evento($1, $2::jsonb) as id`, [id, JSON.stringify(dados)])
+const vigentes = (tx: Transacao, participante: string, tipo: string) =>
+  tx.query<{ dados: unknown; registrado_por: string }>(
+    `select e.dados, e.registrado_por from public.eventos e
+     where e.participante_id = $1 and e.tipo = $2 and not e.anulado
+       and not exists (select 1 from public.eventos x where x.substitui_id = e.id)`,
+    [participante, tipo],
+  )
+
+describe('correção e anulação de eventos', () => {
+  async function comNota(tx: Transacao) {
+    const c = await cenarioEventos(tx)
+    await tx.como('authenticated', c.csA)
+    const { linhas } = await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'nota', fase: 'suporte', dados: { texto: 'Primeira versão.' } })
+    await tx.comoPostgres()
+    return { ...c, nota: linhas[0].id }
+  }
+
+  it('o autor corrige: a nova versão é a vigente', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comNota(tx)
+      await tx.como('authenticated', c.csA)
+      expect((await corrigirEvento(tx, c.nota, { tipo: 'nota', fase: 'suporte', dados: { texto: 'Segunda versão.' } })).erro).toBeNull()
+      expect(await vigentes(tx, c.pessoas[0], 'nota')).toEqual([{ dados: { texto: 'Segunda versão.' }, registrado_por: c.csA }])
+    })
+  })
+
+  it('a correção mantém o tipo do evento (trocar o tipo é anular e registrar outro)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comNota(tx)
+      await tx.como('authenticated', c.csA)
+      expect((await corrigirEvento(tx, c.nota, { tipo: 'dificuldade', dados: { texto: 'Outra coisa.' } })).erro ?? 'sem erro').toMatch(/mantém o tipo/)
+    })
+  })
+
+  it('anular exige motivo de anulação; o evento anulado sai dos vigentes', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comNota(tx)
+      const anulacao = await motivo(tx, 'anulacao', 'Lançado por engano')
+      const correcao = await motivo(tx, 'correcao', 'Dado incorreto')
+      await tx.como('authenticated', c.csA)
+      expect((await anularEvento(tx, c.nota, null, 'x')).erro ?? 'sem erro').toMatch(/motivo da anulação/)
+      expect((await anularEvento(tx, c.nota, correcao, 'x')).erro ?? 'sem erro').toMatch(/motivo de anulação/)
+      expect((await anularEvento(tx, c.nota, anulacao, ' ')).erro ?? 'sem erro').toMatch(/motivo da anulação/)
+      expect((await anularEvento(tx, c.nota, anulacao, 'Era de outra pessoa.')).erro).toBeNull()
+      expect(await vigentes(tx, c.pessoas[0], 'nota')).toEqual([])
+    })
+  })
+
+  it('outro cs não corrige nem anula; revisor só com motivo', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comNota(tx)
+      const anulacao = await motivo(tx, 'anulacao', 'Duplicado')
+      const correcao = await motivo(tx, 'correcao', 'Complemento')
+      const nova = { tipo: 'nota', fase: 'suporte', dados: { texto: 'Outra.' } }
+      await tx.como('authenticated', c.csB)
+      expect((await corrigirEvento(tx, c.nota, nova)).erro ?? 'sem erro').toMatch(/Só revisor ou admin/)
+      expect((await anularEvento(tx, c.nota, anulacao, 'x')).erro ?? 'sem erro').toMatch(/Só revisor ou admin/)
+      await tx.comoPostgres()
+      await tx.como('authenticated', c.revisor)
+      expect((await corrigirEvento(tx, c.nota, nova)).erro ?? 'sem erro').toMatch(/motivo da correção/)
+      expect((await corrigirEvento(tx, c.nota, { ...nova, correcao_motivo_id: correcao, correcao_motivo_texto: 'Completei.' })).erro).toBeNull()
+    })
+  })
+})
