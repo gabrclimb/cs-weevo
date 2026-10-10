@@ -172,3 +172,57 @@ create policy "revisor_insere" on public.imersao_dias for insert to authenticate
 create policy "revisor_altera" on public.imersao_dias for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
 create policy "revisor_insere" on public.participantes for insert to authenticated with check ((select public.tem_papel('revisor')));
 create policy "revisor_altera" on public.participantes for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
+
+-- Dupla ------------------------------------------------------------------------
+-- A coluna parceiro_presenca_id não tem GRANT: só estas RPCs gravam, sempre os dois lados.
+-- SECURITY DEFINER por isso; conferem o papel explicitamente.
+
+create function public.definir_dupla(a uuid, b uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  pa public.participantes;
+  pb public.participantes;
+begin
+  if not public.tem_papel('revisor') then
+    raise exception 'Apenas revisor ou admin definem dupla.' using errcode = 'insufficient_privilege';
+  end if;
+  if a = b then
+    raise exception 'Participante não pode formar dupla consigo mesmo.' using errcode = 'check_violation';
+  end if;
+  select * into pa from public.participantes where id = a for update;
+  select * into pb from public.participantes where id = b for update;
+  if pa.id is null or pb.id is null then
+    raise exception 'Participante não encontrado.' using errcode = 'no_data_found';
+  end if;
+  if pa.turma_suporte_id <> pb.turma_suporte_id then
+    raise exception 'A dupla precisa ser da mesma turma de suporte.' using errcode = 'check_violation';
+  end if;
+  if (pa.parceiro_presenca_id is not null and pa.parceiro_presenca_id <> b)
+     or (pb.parceiro_presenca_id is not null and pb.parceiro_presenca_id <> a) then
+    raise exception 'Participante já tem dupla.' using errcode = 'check_violation';
+  end if;
+  update public.participantes set parceiro_presenca_id = b where id = a;
+  update public.participantes set parceiro_presenca_id = a where id = b;
+end;
+$$;
+
+create function public.desfazer_dupla(a uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.tem_papel('revisor') then
+    raise exception 'Apenas revisor ou admin desfazem dupla.' using errcode = 'insufficient_privilege';
+  end if;
+  update public.participantes set parceiro_presenca_id = null
+  where id = a or parceiro_presenca_id = a;
+end;
+$$;
+
+grant execute on function public.definir_dupla(uuid, uuid), public.desfazer_dupla(uuid) to authenticated;

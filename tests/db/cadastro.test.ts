@@ -220,7 +220,7 @@ describe('dupla', () => {
     await transacao(db, async (tx) => {
       const [a, b] = await pessoas(tx, 2)
       await tx.como('authenticated', await criarUsuario(tx, 'cs'))
-      expect((await tx.erro(`select public.definir_dupla($1, $2)`, [a, b])) ?? 'sem erro').toMatch(/apenas revisor ou admin/)
+      expect((await tx.erro(`select public.definir_dupla($1, $2)`, [a, b])) ?? 'sem erro').toMatch(/Apenas revisor ou admin/)
     })
   })
 })
