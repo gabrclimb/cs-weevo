@@ -6,6 +6,8 @@ export type Transacao = {
   query: ClienteDb['query']
   /** Passa a agir como o papel do PostgREST, com `sub` no JWT (auth.uid()). */
   como(papel: Papel, userId?: string): Promise<void>
+  /** Volta a agir como postgres (sem JWT), para preparar dados no meio do teste. */
+  comoPostgres(): Promise<void>
   /** Executa num savepoint e devolve a mensagem de erro, ou null se deu certo. A transação segue utilizável. */
   erro(sql: string, params?: unknown[]): Promise<string | null>
   /** Como `erro`, mas executa uma vez só e devolve também as linhas quando dá certo. */
@@ -34,6 +36,10 @@ export async function transacao(db: ClienteDb, fn: (tx: Transacao) => Promise<vo
         const claims = JSON.stringify(userId ? { role: papel, sub: userId } : { role: papel })
         await db.query(`select set_config('request.jwt.claims', $1, true)`, [claims])
         await db.exec(`set local role ${papel}`)
+      },
+      comoPostgres: async () => {
+        await db.exec('reset role')
+        await db.query(`select set_config('request.jwt.claims', '', true)`)
       },
       erro: async (sql, params) => (await resultado(sql, params)).erro,
       resultado,
