@@ -117,8 +117,12 @@ describe('authenticated sem linha em weevo_admins (regressão)', () => {
       expect((await tx.erro(`insert into public.${tabela} default values`)) ?? 'sem erro').toMatch(
         /row-level security|permission denied/,
       )
-      expect(await tx.query(`update public.${tabela} set created_at = now() returning 1`)).toEqual([])
-      expect(await tx.query(`delete from public.${tabela} returning 1`)).toEqual([])
+      // Bloqueado pelo privilégio (erro) ou pelo RLS (nenhuma linha afetada): as duas formas valem.
+      for (const sql of [`update public.${tabela} set created_at = now() returning 1`, `delete from public.${tabela} returning 1`]) {
+        const erro = await tx.erro(sql)
+        if (erro) expect(erro, sql).toMatch(/permission denied/)
+        else expect(await tx.query(sql), sql).toEqual([])
+      }
     })
   })
 

@@ -5,6 +5,21 @@
 revoke all on all tables in schema public from anon;
 grant select on public.weevo_depoimentos to anon;
 
+-- authenticated: só o DML que as policies usam (o RLS decide quem). Explícito, sem depender
+-- de o projeto expor tabelas novas automaticamente.
+revoke all on all tables in schema public from authenticated;
+grant select, insert, update, delete on
+  public.weevo_turmas,
+  public.weevo_plantoes,
+  public.weevo_participantes,
+  public.weevo_tarefas,
+  public.message_template_categories,
+  public.message_templates
+to authenticated;
+grant select, insert, delete on public.weevo_eventos to authenticated;
+grant select on public.weevo_admins to authenticated;
+grant select, update on public.weevo_depoimentos to authenticated;
+
 -- Função de trigger não pode ser chamada como RPC. O trigger continua disparando: EXECUTE não é checado no disparo.
 revoke execute on function public.weevo_recalcular_participante() from public, anon, authenticated;
 
