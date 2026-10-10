@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cenarioEncontro, registrar, veioCompleto } from './cenarios'
+import { cenarioEncontro, estado, registrar, veioCompleto } from './cenarios'
 import { criarCliente, type ClienteDb } from './cliente'
 import { transacao } from './transacao'
 
@@ -41,6 +41,20 @@ describe('validação do registro', () => {
       const dados = { ...(await veioCompleto(tx, c)), ...mudanca }
       await tx.como('authenticated', c.csA)
       expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+})
+
+describe('insert direto, sem a RPC', () => {
+  it('"Veio" sem temas é barrado no fim da transação', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      await tx.como('authenticated', c.csA)
+      const veio = await estado(tx, 'veio')
+      const sql = `insert into public.registros_encontro (sessao_id, participante_id, presenca_id, modalidade, feito, planejado, status_projeto)
+                   values ($1, $2, $3, 'online', 'Feito', 'Planejado', 'rodando')`
+      expect(await tx.erro(sql, [c.sessao, c.pessoas[0], veio])).toBeNull() // o temas só é conferido no commit
+      expect((await tx.erro(`set constraints public.registros_encontro_temas immediate`)) ?? 'sem erro').toMatch(/pelo menos um tema/)
     })
   })
 })

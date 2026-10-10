@@ -100,6 +100,12 @@ begin
   )
   returning id into v_id;
 
+  -- Mesma regra do constraint trigger, mas com erro na hora (a RPC é o caminho do front).
+  if (select conta_presenca from public.estados_presenca where id = (p ->> 'presenca_id')::uuid)
+     and jsonb_array_length(coalesce(p -> 'temas', '[]'::jsonb)) = 0 then
+    raise exception 'Escolha pelo menos um tema trabalhado no encontro.' using errcode = 'check_violation';
+  end if;
+
   insert into public.registro_temas (registro_id, tema_id)
   select v_id, t::uuid from jsonb_array_elements_text(coalesce(p -> 'temas', '[]'::jsonb)) as t;
 
@@ -108,3 +114,68 @@ end;
 $$;
 
 grant execute on function public.registrar_encontro(jsonb) to authenticated;
+
+-- Validação ----------------------------------------------------------------------
+-- Dirigida pelos flags de estados_presenca, então segue valendo quando o admin cria estados.
+-- Vale para manual; a carga (origem import) tem as exceções da seção 8.5. Anulação não repete os campos.
+
+create function public.texto_vazio(t text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$ select t is null or btrim(t) = '' $$;
+
+-- Helper puro chamado pelos triggers no papel de quem grava (funções novas nascem sem EXECUTE: fase 0).
+grant execute on function public.texto_vazio(text) to authenticated, service_role;
+
+create function public.validar_registro_encontro()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  e public.estados_presenca;
+begin
+  if new.anulado then
+    return new;
+  end if;
+  select * into e from public.estados_presenca where id = new.presenca_id;
+
+  if e.conta_presenca and new.origem = 'manual' then
+    if public.texto_vazio(new.feito) then
+      raise exception 'Informe o que foi feito no encontro.' using errcode = 'check_violation';
+    end if;
+    if public.texto_vazio(new.planejado) then
+      raise exception 'Informe o planejado para o próximo encontro.' using errcode = 'check_violation';
+    end if;
+    if new.status_projeto is null then
+      raise exception 'Informe o status do projeto.' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger registros_encontro_validar before insert on public.registros_encontro
+  for each row execute function public.validar_registro_encontro();
+
+-- Temas: chegam depois do registro (outra tabela), então a conferência é no fim da transação.
+create function public.conferir_temas_do_registro()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if not new.anulado and new.origem = 'manual'
+     and (select conta_presenca from public.estados_presenca where id = new.presenca_id)
+     and not exists (select 1 from public.registro_temas where registro_id = new.id) then
+    raise exception 'Escolha pelo menos um tema trabalhado no encontro.' using errcode = 'check_violation';
+  end if;
+  return null;
+end;
+$$;
+
+create constraint trigger registros_encontro_temas after insert on public.registros_encontro
+  deferrable initially deferred
+  for each row execute function public.conferir_temas_do_registro();
