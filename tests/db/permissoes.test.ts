@@ -43,3 +43,15 @@ describe('anon', () => {
     })
   })
 })
+
+describe('função de trigger', () => {
+  // Sem o revoke, a chamada passa da checagem de privilégio e só falha por não estar num trigger.
+  it.each(['anon', 'authenticated'] as const)('%s não executa weevo_recalcular_participante', async (papel) => {
+    await transacao(db, async (tx) => {
+      await tx.como(papel)
+      expect((await tx.erro(`select public.weevo_recalcular_participante()`)) ?? 'sem erro').toMatch(
+        /permission denied for function/,
+      )
+    })
+  })
+})
