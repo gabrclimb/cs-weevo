@@ -123,3 +123,92 @@ describe('quem cria e altera sessões', () => {
     })
   })
 })
+
+describe('convocação e distribuição por CS', () => {
+  async function cenario(tx: Transacao) {
+    const t = await turma(tx)
+    const outra = await turma(tx, 'Outra Turma')
+    const { linhas } = await sessao(tx, t, { tipo: 'regular', numero: 1 })
+    const pessoas: string[] = []
+    for (const [nome, tid] of [['Pessoa 1', t], ['Pessoa 2', t], ['Pessoa de outra turma', outra]] as const) {
+      const [p] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ($1, $2) returning id`, [nome, tid])
+      pessoas.push(p.id)
+    }
+    const csA = await criarUsuario(tx, 'cs', { nome: 'CS A' })
+    const csB = await criarUsuario(tx, 'cs', { nome: 'CS B' })
+    const csInativo = await criarUsuario(tx, 'cs', { ativo: false })
+    const revisor = await criarUsuario(tx, 'revisor')
+    return { sessao: linhas[0].id, pessoas, csA, csB, csInativo, revisor }
+  }
+  const distribuir = (tx: Transacao, sessaoId: string, itens: { participante_id: string; cs_id: string | null }[]) =>
+    tx.resultado<{ n: number }>(`select public.distribuir_participantes($1, $2::jsonb) as n`, [sessaoId, JSON.stringify(itens)])
+  const convocados = (tx: Transacao, sessaoId: string) =>
+    tx.query<{ participante_id: string; cs_id: string | null }>(
+      `select participante_id, cs_id from public.sessao_participantes where sessao_id = $1 order by participante_id`,
+      [sessaoId],
+    )
+
+  it('revisor convoca e distribui; chamar de novo redistribui', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenario(tx)
+      const [p1, p2] = c.pessoas
+      await tx.como('authenticated', c.revisor)
+      expect((await distribuir(tx, c.sessao, [{ participante_id: p1, cs_id: c.csA }, { participante_id: p2, cs_id: null }])).linhas).toEqual([{ n: 2 }])
+      await distribuir(tx, c.sessao, [{ participante_id: p2, cs_id: c.csB }])
+      const esperado = [{ participante_id: p1, cs_id: c.csA }, { participante_id: p2, cs_id: c.csB }].sort((a, b) => a.participante_id.localeCompare(b.participante_id))
+      expect(await convocados(tx, c.sessao)).toEqual(esperado)
+    })
+  })
+
+  it('convocação duplicada direta é rejeitada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenario(tx)
+      await tx.query(`insert into public.sessao_participantes (sessao_id, participante_id) values ($1, $2)`, [c.sessao, c.pessoas[0]])
+      expect((await tx.erro(`insert into public.sessao_participantes (sessao_id, participante_id) values ($1, $2)`, [c.sessao, c.pessoas[0]])) ?? 'sem erro').toMatch(
+        /duplicate key/,
+      )
+    })
+  })
+
+  it.each([
+    ['participante de outra turma de suporte', 'turma', /turma de suporte/],
+    ['CS inativo', 'inativo', /CS precisa ter perfil ativo/],
+    ['sessão que não está agendada', 'cancelada', /sessão agendada/],
+  ] as const)('rejeita %s', async (_caso, situacao, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenario(tx)
+      if (situacao === 'cancelada') await tx.query(`update public.sessoes set status = 'cancelada' where id = $1`, [c.sessao])
+      await tx.como('authenticated', c.revisor)
+      const item = {
+        turma: { participante_id: c.pessoas[2], cs_id: c.csA },
+        inativo: { participante_id: c.pessoas[0], cs_id: c.csInativo },
+        cancelada: { participante_id: c.pessoas[0], cs_id: c.csA },
+      }[situacao]
+      expect((await distribuir(tx, c.sessao, [item])).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+
+  it('cs não distribui', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenario(tx)
+      await tx.como('authenticated', c.csA)
+      expect((await distribuir(tx, c.sessao, [{ participante_id: c.pessoas[0], cs_id: c.csA }])).erro ?? 'sem erro').toMatch(
+        /permission denied|row-level security/,
+      )
+    })
+  })
+
+  it.each([
+    ['revisor', 0],
+    ['cs', 1],
+  ] as const)('%s remove convocação (restam %s)', async (papel, restam) => {
+    await transacao(db, async (tx) => {
+      const c = await cenario(tx)
+      await tx.query(`insert into public.sessao_participantes (sessao_id, participante_id) values ($1, $2)`, [c.sessao, c.pessoas[0]])
+      await tx.como('authenticated', papel === 'revisor' ? c.revisor : c.csA)
+      const erro = await tx.erro(`delete from public.sessao_participantes where sessao_id = $1`, [c.sessao])
+      if (erro) expect(erro).toMatch(/permission denied/)
+      expect((await convocados(tx, c.sessao)).length).toBe(restam)
+    })
+  })
+})
