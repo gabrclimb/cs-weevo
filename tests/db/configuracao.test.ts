@@ -94,3 +94,33 @@ describe('seeds da configuração', () => {
     })
   })
 })
+
+describe('validação de configuracoes', () => {
+  const PESOS_OK = { status_projeto: 30, presenca: 20, resposta: 15, grupo: 15, plataforma: 10, interesse: 10 }
+
+  it.each([
+    ['pesos que não somam 100', 'pesos', { ...PESOS_OK, interesse: 20 }],
+    ['peso faltando', 'pesos', { status_projeto: 30, presenca: 20, resposta: 15, grupo: 15, plataforma: 20 }],
+    ['peso negativo', 'pesos', { ...PESOS_OK, status_projeto: 50, interesse: -10 }],
+    ['faixa morno acima da quente', 'faixas', { quente: 40, morno: 70 }],
+    ['faixa acima de 100', 'faixas', { quente: 120, morno: 40 }],
+    ['carga_liberada que não é booleano', 'carga_liberada', 'sim'],
+    ['alerta zerado', 'alertas', { sem_contato_dias: 0, contato_sem_resposta_horas: 48, sessao_sem_registro_dias: 1 }],
+  ])('rejeita %s', async (_caso, chave, valor) => {
+    await transacao(db, async (tx) => {
+      expect((await tx.erro(`update public.configuracoes set valor = $2 where chave = $1`, [chave, JSON.stringify(valor)])) ?? 'sem erro').toMatch(
+        /configuração inválida/i,
+      )
+    })
+  })
+
+  it.each([
+    ['pesos', { status_projeto: 40, presenca: 20, resposta: 10, grupo: 10, plataforma: 10, interesse: 10 }],
+    ['faixas', { quente: 80, morno: 50 }],
+    ['carga_liberada', false],
+  ])('aceita %s válido', async (chave, valor) => {
+    await transacao(db, async (tx) => {
+      expect(await tx.erro(`update public.configuracoes set valor = $2 where chave = $1`, [chave, JSON.stringify(valor)])).toBeNull()
+    })
+  })
+})
