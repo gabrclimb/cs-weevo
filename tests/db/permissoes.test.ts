@@ -162,9 +162,14 @@ describe('privilégios de tabela', () => {
     )
     const DML = 'DELETE,INSERT,SELECT,UPDATE'
     expect(rows).toEqual([
+      { tabela: 'configuracoes', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'estados_presenca', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'funil_etapas', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'message_template_categories', papel: 'authenticated', privilegios: DML },
       { tabela: 'message_templates', papel: 'authenticated', privilegios: DML },
+      { tabela: 'motivos', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'perfis', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'temas', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'weevo_admins', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'anon', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'authenticated', privilegios: 'SELECT,UPDATE' },
