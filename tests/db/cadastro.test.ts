@@ -93,3 +93,17 @@ describe('participantes', () => {
     })
   })
 })
+
+describe('turma de suporte', () => {
+  it('nasce igual à da imersão, mesmo se o cliente mandar outra', async () => {
+    await transacao(db, async (tx) => {
+      const [a] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma A', 'aberta', 'plantao') returning id`)
+      const [b] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma B', 'aberta', 'plantao') returning id`)
+      const [p] = await tx.query<{ turma_suporte_id: string }>(
+        `insert into public.participantes (nome, turma_imersao_id, turma_suporte_id) values ('Pessoa Fictícia', $1, $2) returning turma_suporte_id`,
+        [a.id, b.id],
+      )
+      expect(p.turma_suporte_id).toBe(a.id)
+    })
+  })
+})
