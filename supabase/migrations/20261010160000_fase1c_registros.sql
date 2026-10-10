@@ -142,6 +142,10 @@ begin
   end if;
   select * into e from public.estados_presenca where id = new.presenca_id;
 
+  if e.conta_presenca and new.modalidade is null then
+    raise exception 'Informe a modalidade (presencial ou online).' using errcode = 'check_violation';
+  end if;
+
   if e.conta_presenca and new.origem = 'manual' then
     if public.texto_vazio(new.feito) then
       raise exception 'Informe o que foi feito no encontro.' using errcode = 'check_violation';
