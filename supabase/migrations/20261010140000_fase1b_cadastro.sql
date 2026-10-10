@@ -143,3 +143,32 @@ create trigger participantes_updated_at before update on public.participantes
   for each row execute function public.set_updated_at();
 
 alter table public.participantes enable row level security;
+
+-- Acesso ---------------------------------------------------------------------
+-- Todo membro ativo lê; revisor e admin cadastram (D2). Ninguém apaga: arquivar.
+-- Colunas derivadas (situacao, turma_suporte_id, projeto) e a dupla não têm GRANT: só as RPCs gravam nelas.
+
+grant select on public.empresas, public.turmas, public.imersao_dias, public.participantes to authenticated;
+
+grant insert (nome, observacoes) on public.empresas to authenticated;
+grant update (nome, observacoes, arquivada) on public.empresas to authenticated;
+grant insert (nome, tipo, empresa_id, modelo_suporte, link_grupo) on public.turmas to authenticated;
+grant update (nome, tipo, empresa_id, modelo_suporte, link_grupo, arquivada) on public.turmas to authenticated;
+grant insert (turma_id, data, ordem) on public.imersao_dias to authenticated;
+grant update (data, ordem) on public.imersao_dias to authenticated;
+grant insert (nome, apelido, telefone, email, empresa_id, turma_imersao_id, horario_escolhido) on public.participantes to authenticated;
+grant update (nome, apelido, telefone, email, empresa_id, horario_escolhido, arquivado) on public.participantes to authenticated;
+
+create policy "membros_leem" on public.empresas for select to authenticated using ((select public.tem_papel('cs')));
+create policy "membros_leem" on public.turmas for select to authenticated using ((select public.tem_papel('cs')));
+create policy "membros_leem" on public.imersao_dias for select to authenticated using ((select public.tem_papel('cs')));
+create policy "membros_leem" on public.participantes for select to authenticated using ((select public.tem_papel('cs')));
+
+create policy "revisor_insere" on public.empresas for insert to authenticated with check ((select public.tem_papel('revisor')));
+create policy "revisor_altera" on public.empresas for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
+create policy "revisor_insere" on public.turmas for insert to authenticated with check ((select public.tem_papel('revisor')));
+create policy "revisor_altera" on public.turmas for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
+create policy "revisor_insere" on public.imersao_dias for insert to authenticated with check ((select public.tem_papel('revisor')));
+create policy "revisor_altera" on public.imersao_dias for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
+create policy "revisor_insere" on public.participantes for insert to authenticated with check ((select public.tem_papel('revisor')));
+create policy "revisor_altera" on public.participantes for update to authenticated using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
