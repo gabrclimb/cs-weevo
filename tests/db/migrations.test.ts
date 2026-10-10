@@ -15,6 +15,7 @@ describe('migrations', () => {
     )
     expect(rows.map((r) => r.table_name)).toEqual([
       'configuracoes',
+      'empresas',
       'estados_presenca',
       'funil_etapas',
       'message_template_categories',
@@ -22,6 +23,7 @@ describe('migrations', () => {
       'motivos',
       'perfis',
       'temas',
+      'turmas',
       'weevo_admins',
       'weevo_depoimentos',
       'weevo_eventos',
