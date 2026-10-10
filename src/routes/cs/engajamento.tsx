@@ -6,7 +6,7 @@ import { Calculator, ChevronDown, ChevronRight, Download, Handshake, MoreHorizon
 import { Button, Input, Select } from '@/components/ui'
 import { Dica } from '@/components/dica'
 import { Paginacao, usePaginacao } from '@/components/paginacao'
-import type { ParticipanteRow, PlantaoRow } from '@/lib/database.types'
+import type { ParticipanteRow, PlantaoRow } from '@/lib/tipos'
 import { normalize } from '@/lib/csv'
 import { explicarPontuacao } from '@/lib/explicacao'
 import { PESOS } from '@/lib/config'

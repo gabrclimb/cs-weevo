@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import type { Database, EventoCategoria, TarefaRow } from '@/lib/database.types'
+import type { Database, EventoCategoria, TarefaRow } from '@/lib/tipos'
 import { chaves } from '@/lib/chaves'
 import { mensagemErro } from '@/lib/utils'
 import { invalidarEventos } from '@/features/eventos/queries'

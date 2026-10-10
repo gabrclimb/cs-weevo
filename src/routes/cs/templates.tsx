@@ -4,7 +4,7 @@ import { Copy, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Campo, Dialog, Input, Select, Textarea } from '@/components/ui'
 import { Dica } from '@/components/dica'
-import type { TemplateRow } from '@/lib/database.types'
+import type { TemplateRow } from '@/lib/tipos'
 import {
   useExcluirCategoria,
   useExcluirTemplate,

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { format } from 'date-fns'
 import { Button, Campo, Dialog, Input, Textarea } from '@/components/ui'
-import type { EventoTipo } from '@/lib/database.types'
+import type { EventoTipo } from '@/lib/tipos'
 import { EVENTO } from './constantes'
 
 const TEXTOS: Partial<Record<EventoTipo, { descricao: string; notaLabel: string; notaObrigatoria?: boolean }>> = {

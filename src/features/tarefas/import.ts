@@ -1,6 +1,6 @@
 import { normalize, parseCsv } from '@/lib/csv'
 import { parseWeevoDatas } from '@/lib/datas'
-import type { TarefaRow } from '@/lib/database.types'
+import type { TarefaRow } from '@/lib/tipos'
 import { STATUS_TAREFA, STATUS_TAREFA_KEYS, TIPO_TAREFA, TIPO_TAREFA_KEYS } from './constantes'
 
 export type TarefaImportada = {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Check, X } from 'lucide-react'
-import type { PlantaoRow } from '@/lib/database.types'
+import type { PlantaoRow } from '@/lib/tipos'
 import type { Explicacao } from '@/lib/explicacao'
 import type { Pontuacao } from '@/lib/pontuacao'
 import { PESOS } from '@/lib/config'

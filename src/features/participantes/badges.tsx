@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui'
 import { Dica } from '@/components/dica'
-import type { ParticipanteStatus, WeevoStart } from '@/lib/database.types'
+import type { ParticipanteStatus, WeevoStart } from '@/lib/tipos'
 import { DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { STATUS_PARTICIPANTE, WEEVO_START } from './constantes'
 

@@ -1,0 +1,7 @@
+{
+  // O .env.example é só um modelo versionado: o editor não deixa digitar nele por engano.
+  // Para mudar o modelo de propósito, use "Toggle Active Editor Read-only in Session".
+  "files.readonlyInclude": {
+    "**/.env.example": true
+  }
+}

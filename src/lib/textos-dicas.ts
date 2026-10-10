@@ -1,5 +1,5 @@
 // Textos das dicas (tooltips e ajudas de formulário). Usam os mesmos parâmetros do cálculo para nunca divergir da regra.
-import type { ParticipanteStatus, WeevoStart } from '@/lib/database.types'
+import type { ParticipanteStatus, WeevoStart } from '@/lib/tipos'
 import type { StatusTarefa, TipoTarefa } from '@/features/tarefas/constantes'
 import { ALERTAS, FAIXAS_PONTUACAO, PESOS } from './config'
 

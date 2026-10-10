@@ -1,4 +1,4 @@
-import type { Database, EventoCategoria, TarefaRow } from '@/lib/database.types'
+import type { Database, EventoCategoria, TarefaRow } from '@/lib/tipos'
 
 type TarefaUpdate = Database['public']['Tables']['weevo_tarefas']['Update']
 type EventoInsert = Database['public']['Tables']['weevo_eventos']['Insert']

@@ -3,7 +3,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Copy, MessageCircleReply, MessagesSquare, Pencil, Plus, Rocket, StickyNote, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge, Button, Dialog, Select } from '@/components/ui'
-import type { EventoRow, EventoTipo, ParticipanteStatus, WeevoStart } from '@/lib/database.types'
+import type { EventoRow, EventoTipo, ParticipanteStatus, WeevoStart } from '@/lib/tipos'
 import { formatarTelefone } from '@/lib/telefone'
 import { cn, dataHora, haQuanto, hojeISO } from '@/lib/utils'
 import {

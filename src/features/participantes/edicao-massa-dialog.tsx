@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Button, Campo, Dialog, Input, Select } from '@/components/ui'
-import type { Database, ParticipanteRow, ParticipanteStatus, TurmaRow, WeevoStart } from '@/lib/database.types'
+import type { Database, ParticipanteRow, ParticipanteStatus, TurmaRow, WeevoStart } from '@/lib/tipos'
 import { DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { STATUS_KEYS, STATUS_PARTICIPANTE, WEEVO_START, WEEVO_START_KEYS } from './constantes'
 import { useAtualizarEmMassa } from './queries'
