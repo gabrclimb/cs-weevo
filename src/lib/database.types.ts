@@ -43,6 +43,44 @@ export type Database = {
           },
         ]
       }
+      empresas: {
+        Row: {
+          arquivada: boolean
+          created_at: string
+          id: string
+          nome: string
+          observacoes: string | null
+          registrado_por: string | null
+          updated_at: string
+        }
+        Insert: {
+          arquivada?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          registrado_por?: string | null
+          updated_at?: string
+        }
+        Update: {
+          arquivada?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          registrado_por?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empresas_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       estados_presenca: {
         Row: {
           ativo: boolean
@@ -111,6 +149,38 @@ export type Database = {
           tipo_motivo?: string | null
         }
         Relationships: []
+      }
+      imersao_dias: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          ordem: number
+          turma_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          ordem: number
+          turma_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          ordem?: number
+          turma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imersao_dias_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_template_categories: {
         Row: {
@@ -198,6 +268,109 @@ export type Database = {
         }
         Relationships: []
       }
+      participantes: {
+        Row: {
+          apelido: string | null
+          arquivado: boolean
+          atualizado_por: string | null
+          created_at: string
+          email: string | null
+          empresa_id: string | null
+          horario_escolhido: string | null
+          id: string
+          nome: string
+          parceiro_presenca_id: string | null
+          projeto: string | null
+          registrado_por: string | null
+          situacao: string
+          telefone: string | null
+          turma_imersao_id: string
+          turma_suporte_id: string
+          updated_at: string
+        }
+        Insert: {
+          apelido?: string | null
+          arquivado?: boolean
+          atualizado_por?: string | null
+          created_at?: string
+          email?: string | null
+          empresa_id?: string | null
+          horario_escolhido?: string | null
+          id?: string
+          nome: string
+          parceiro_presenca_id?: string | null
+          projeto?: string | null
+          registrado_por?: string | null
+          situacao?: string
+          telefone?: string | null
+          turma_imersao_id: string
+          turma_suporte_id: string
+          updated_at?: string
+        }
+        Update: {
+          apelido?: string | null
+          arquivado?: boolean
+          atualizado_por?: string | null
+          created_at?: string
+          email?: string | null
+          empresa_id?: string | null
+          horario_escolhido?: string | null
+          id?: string
+          nome?: string
+          parceiro_presenca_id?: string | null
+          projeto?: string | null
+          registrado_por?: string | null
+          situacao?: string
+          telefone?: string | null
+          turma_imersao_id?: string
+          turma_suporte_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participantes_atualizado_por_fkey"
+            columns: ["atualizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "participantes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participantes_parceiro_presenca_id_fkey"
+            columns: ["parceiro_presenca_id"]
+            isOneToOne: false
+            referencedRelation: "participantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participantes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "participantes_turma_imersao_id_fkey"
+            columns: ["turma_imersao_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participantes_turma_suporte_id_fkey"
+            columns: ["turma_suporte_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perfis: {
         Row: {
           ativo: boolean
@@ -225,6 +398,131 @@ export type Database = {
         }
         Relationships: []
       }
+      sessao_participantes: {
+        Row: {
+          created_at: string
+          cs_id: string | null
+          id: string
+          participante_id: string
+          registrado_por: string | null
+          sessao_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cs_id?: string | null
+          id?: string
+          participante_id: string
+          registrado_por?: string | null
+          sessao_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cs_id?: string | null
+          id?: string
+          participante_id?: string
+          registrado_por?: string | null
+          sessao_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessao_participantes_cs_id_fkey"
+            columns: ["cs_id"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "sessao_participantes_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "participantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessao_participantes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "sessao_participantes_sessao_id_fkey"
+            columns: ["sessao_id"]
+            isOneToOne: false
+            referencedRelation: "sessoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessoes: {
+        Row: {
+          created_at: string
+          data: string
+          formato: string
+          hora_fim: string | null
+          hora_inicio: string | null
+          id: string
+          link: string | null
+          numero: number | null
+          registrado_por: string | null
+          repoe_numero: number | null
+          status: string
+          tipo: string
+          turma_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          formato: string
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          link?: string | null
+          numero?: number | null
+          registrado_por?: string | null
+          repoe_numero?: number | null
+          status?: string
+          tipo: string
+          turma_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          formato?: string
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          link?: string | null
+          numero?: number | null
+          registrado_por?: string | null
+          repoe_numero?: number | null
+          status?: string
+          tipo?: string
+          turma_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "sessoes_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       temas: {
         Row: {
           ativo: boolean
@@ -248,6 +546,60 @@ export type Database = {
           rotulo?: string
         }
         Relationships: []
+      }
+      turmas: {
+        Row: {
+          arquivada: boolean
+          created_at: string
+          empresa_id: string | null
+          id: string
+          link_grupo: string | null
+          modelo_suporte: string
+          nome: string
+          registrado_por: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          arquivada?: boolean
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          link_grupo?: string | null
+          modelo_suporte: string
+          nome: string
+          registrado_por?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          arquivada?: boolean
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          link_grupo?: string | null
+          modelo_suporte?: string
+          nome?: string
+          registrado_por?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "turmas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "turmas_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       weevo_admins: {
         Row: {
@@ -615,6 +967,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      definir_dupla: { Args: { a: string; b: string }; Returns: undefined }
+      desfazer_dupla: { Args: { a: string }; Returns: undefined }
+      distribuir_participantes: {
+        Args: { p_itens: Json; p_sessao: string }
+        Returns: number
+      }
       is_admin: { Args: never; Returns: boolean }
       tem_papel: { Args: { minimo: string }; Returns: boolean }
     }
