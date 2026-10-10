@@ -71,6 +71,27 @@ describe('modalidade', () => {
   })
 })
 
+describe('motivo de falta', () => {
+  it.each([
+    ['sem chip', null, 'Viajou.', /motivo/],
+    ['sem texto', ['falta', 'Viagem'], '  ', /texto do motivo/],
+    ['com chip de outro tipo', ['travou', 'Ferramenta'], 'Viajou.', /motivo de falta/],
+  ] as const)('rejeita "Não veio" %s', async (_caso, chip, texto, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = {
+        sessao_id: c.sessao,
+        participante_id: c.pessoas[0],
+        presenca_id: await estado(tx, 'nao_veio'),
+        motivo_id: chip ? await motivo(tx, chip[0], chip[1]) : null,
+        motivo_texto: texto,
+      }
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
