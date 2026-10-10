@@ -1,0 +1,31 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { criarCliente, type ClienteDb } from './cliente'
+import { transacao } from './transacao'
+
+/** Tabelas do CS: nenhuma delas é da LP pública. */
+const TABELAS_CS = [
+  'weevo_admins',
+  'weevo_turmas',
+  'weevo_plantoes',
+  'weevo_participantes',
+  'weevo_eventos',
+  'weevo_tarefas',
+  'message_template_categories',
+  'message_templates',
+]
+
+let db: ClienteDb
+
+beforeAll(async () => {
+  db = await criarCliente()
+})
+afterAll(() => db?.close())
+
+describe('anon', () => {
+  it.each(TABELAS_CS)('não lê %s', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await tx.como('anon')
+      expect((await tx.erro(`select * from public.${tabela}`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+})
