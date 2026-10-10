@@ -172,3 +172,25 @@ $$;
 
 create trigger configuracoes_validar before insert or update on public.configuracoes
   for each row execute function public.validar_configuracao();
+
+-- Escrita: só admin. Sem DELETE para ninguém (desativar com ativo = false).
+-- Update só em colunas que não mudam o sentido de registros antigos (tipo do motivo e flags do estado ficam fixos).
+grant insert (chave, rotulo, conta_presenca, pede_motivo, pede_nova_data, ativo, ordem) on public.estados_presenca to authenticated;
+grant update (rotulo, ordem, ativo) on public.estados_presenca to authenticated;
+grant insert (tipo_registro, rotulo, ordem, ativo) on public.motivos to authenticated;
+grant update (rotulo, ordem, ativo) on public.motivos to authenticated;
+grant insert (rotulo, ordem, ativo) on public.temas to authenticated;
+grant update (rotulo, ordem, ativo) on public.temas to authenticated;
+grant insert (rotulo, ordem, final, pede_motivo, tipo_motivo, ativo) on public.funil_etapas to authenticated;
+grant update (rotulo, ordem, pede_motivo, tipo_motivo, ativo) on public.funil_etapas to authenticated;
+grant update (valor) on public.configuracoes to authenticated;
+
+create policy "admin_insere" on public.estados_presenca for insert to authenticated with check ((select public.tem_papel('admin')));
+create policy "admin_altera" on public.estados_presenca for update to authenticated using ((select public.tem_papel('admin'))) with check ((select public.tem_papel('admin')));
+create policy "admin_insere" on public.motivos for insert to authenticated with check ((select public.tem_papel('admin')));
+create policy "admin_altera" on public.motivos for update to authenticated using ((select public.tem_papel('admin'))) with check ((select public.tem_papel('admin')));
+create policy "admin_insere" on public.temas for insert to authenticated with check ((select public.tem_papel('admin')));
+create policy "admin_altera" on public.temas for update to authenticated using ((select public.tem_papel('admin'))) with check ((select public.tem_papel('admin')));
+create policy "admin_insere" on public.funil_etapas for insert to authenticated with check ((select public.tem_papel('admin')));
+create policy "admin_altera" on public.funil_etapas for update to authenticated using ((select public.tem_papel('admin'))) with check ((select public.tem_papel('admin')));
+create policy "admin_altera" on public.configuracoes for update to authenticated using ((select public.tem_papel('admin'))) with check ((select public.tem_papel('admin')));

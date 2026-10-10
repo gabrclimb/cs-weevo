@@ -137,12 +137,12 @@ describe('quem altera a configuração', () => {
   ]
 
   async function tentar(tx: Transacao, sql: string): Promise<'gravou' | 'barrado'> {
-    const erro = await tx.erro(sql)
+    const { erro, linhas } = await tx.resultado(sql)
     if (erro) {
       expect(erro).toMatch(/permission denied|row-level security/)
       return 'barrado'
     }
-    return (await tx.query(sql)).length ? 'gravou' : 'barrado'
+    return linhas.length ? 'gravou' : 'barrado'
   }
 
   it.each(['cs', 'revisor'] as const)('%s não altera listas nem parâmetros', async (papel) => {
