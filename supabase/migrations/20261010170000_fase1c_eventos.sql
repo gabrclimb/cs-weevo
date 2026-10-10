@@ -156,6 +156,8 @@ declare
   problema text;
   fase_esperada text;
   tipo_motivo text;
+  tipo_correcao text;
+  alvo public.eventos;
 begin
   if new.origem <> 'manual' and not public.origem_confiavel() then
     raise exception 'Evento com origem % só pode ser gravado pela carga ou pela integração (service_role).', new.origem
@@ -165,6 +167,29 @@ begin
   fase_esperada := public.fase_do_tipo(new.tipo);
   if new.fase is null then
     new.fase := fase_esperada;
+  end if;
+
+  -- Correção e anulação: mesmas regras dos registros de encontro.
+  if new.substitui_id is not null then
+    select * into alvo from public.eventos where id = new.substitui_id;
+    if alvo.anulado then
+      raise exception 'Evento anulado não pode ser corrigido nem anulado de novo.' using errcode = 'check_violation';
+    end if;
+    if new.tipo <> alvo.tipo then
+      raise exception 'A correção mantém o tipo do evento; para mudar o tipo, anule e registre outro.' using errcode = 'check_violation';
+    end if;
+    tipo_correcao := case when new.anulado then 'anulacao' else 'correcao' end;
+    if new.correcao_motivo_id is not null
+       and (select tipo_registro from public.motivos where id = new.correcao_motivo_id) <> tipo_correcao then
+      raise exception 'Escolha um motivo de %.', case when new.anulado then 'anulação' else 'correção' end using errcode = 'check_violation';
+    end if;
+    if alvo.registrado_por is distinct from new.registrado_por and new.origem = 'manual' and not public.tem_papel('revisor') then
+      raise exception 'Só revisor ou admin corrigem ou anulam evento de outra pessoa.' using errcode = 'insufficient_privilege';
+    end if;
+    if (new.anulado or alvo.registrado_por is distinct from new.registrado_por)
+       and (new.correcao_motivo_id is null or public.texto_vazio(new.correcao_motivo_texto)) then
+      raise exception 'Informe o motivo da %.', case when new.anulado then 'anulação' else 'correção' end using errcode = 'check_violation';
+    end if;
   end if;
 
   if new.anulado then
@@ -254,3 +279,43 @@ end;
 $$;
 
 grant execute on function public.registrar_evento(jsonb) to authenticated;
+
+-- Correção: nova versão do mesmo evento (mesmo participante e tipo), com as mesmas validações.
+create function public.corrigir_evento(p_substitui uuid, p jsonb)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_alvo public.eventos;
+begin
+  select * into v_alvo from public.eventos where id = p_substitui;
+  if v_alvo.id is null then
+    raise exception 'Evento não encontrado.' using errcode = 'no_data_found';
+  end if;
+  return public.registrar_evento(p || jsonb_build_object('substitui_id', p_substitui, 'participante_id', v_alvo.participante_id));
+end;
+$$;
+
+-- Anulação: nova versão marcada como anulada (copia o essencial; validação de dados não se aplica).
+create function public.anular_evento(p_evento uuid, p_motivo_id uuid, p_motivo_texto text)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_alvo public.eventos;
+  v_id uuid;
+begin
+  select * into v_alvo from public.eventos where id = p_evento;
+  if v_alvo.id is null then
+    raise exception 'Evento não encontrado.' using errcode = 'no_data_found';
+  end if;
+  insert into public.eventos (participante_id, fase, tipo, ocorrido_em, dados, substitui_id, anulado, correcao_motivo_id, correcao_motivo_texto)
+  values (v_alvo.participante_id, v_alvo.fase, v_alvo.tipo, v_alvo.ocorrido_em, v_alvo.dados, v_alvo.id, true, p_motivo_id, p_motivo_texto)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.corrigir_evento(uuid, jsonb), public.anular_evento(uuid, uuid, text) to authenticated;
