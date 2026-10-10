@@ -1,6 +1,6 @@
 import { Tooltip } from 'radix-ui'
 import { Check, Minus, X } from 'lucide-react'
-import type { PlantaoRow } from '@/lib/database.types'
+import type { PlantaoRow } from '@/lib/tipos'
 import { cn, dataCurta } from '@/lib/utils'
 
 export type EstadoPlantao = 'veio' | 'faltou' | 'pendente' | 'sem_plantao'

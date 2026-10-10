@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ParticipanteRow, TurmaRow } from '@/lib/database.types'
+import type { ParticipanteRow, TurmaRow } from '@/lib/tipos'
 import { agrupar, lerAgrupamento } from './agrupamentos'
 
 // Dados fictícios.

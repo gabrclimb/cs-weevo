@@ -1,5 +1,5 @@
 import { ClipboardList, MessageSquare, MessagesSquare, Phone, CalendarDays, type LucideIcon } from 'lucide-react'
-import type { TarefaRow } from '@/lib/database.types'
+import type { TarefaRow } from '@/lib/tipos'
 
 export type StatusTarefa = TarefaRow['status']
 export type TipoTarefa = TarefaRow['tipo']

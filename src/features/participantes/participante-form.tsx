@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button, Campo, Dialog, Input, InputSugestoes, Select, Textarea } from '@/components/ui'
-import type { ParticipanteRow } from '@/lib/database.types'
+import type { ParticipanteRow } from '@/lib/tipos'
 import { formatarTelefone, normalizarTelefone } from '@/lib/telefone'
 import { primeiroNome } from './constantes'
 import { useAtualizarParticipante, useCriarParticipante, useParticipantes, useTurmas } from './queries'

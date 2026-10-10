@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, Dialog } from '@/components/ui'
-import type { TarefaRow } from '@/lib/database.types'
+import type { TarefaRow } from '@/lib/tipos'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 import { usePlantoes } from '@/features/turmas/queries'
 import { useGerarFilhas } from './gerar-filhas'

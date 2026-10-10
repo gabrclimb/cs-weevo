@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Dialog, Textarea } from '@/components/ui'
-import type { EventoCategoria } from '@/lib/database.types'
+import type { EventoCategoria } from '@/lib/tipos'
 import { cn } from '@/lib/utils'
 import { CATEGORIA, CATEGORIA_KEYS } from '@/features/eventos/constantes'
 

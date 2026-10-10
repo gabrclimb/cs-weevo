@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import type { ParticipanteRow } from '@/lib/database.types'
+import type { ParticipanteRow } from '@/lib/tipos'
 import { supabase } from '@/lib/supabase'
 import { mensagemErro } from '@/lib/utils'
 import { invalidarEventos } from '@/features/eventos/queries'

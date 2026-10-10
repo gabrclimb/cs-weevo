@@ -1,4 +1,4 @@
-import type { ParticipanteStatus, WeevoStart } from '@/lib/database.types'
+import type { ParticipanteStatus, WeevoStart } from '@/lib/tipos'
 
 export const STATUS_PARTICIPANTE: Record<ParticipanteStatus, { label: string; classe: string }> = {
   ativo: { label: 'Ativo', classe: 'bg-emerald-100 text-emerald-800' },

@@ -1,4 +1,4 @@
-import type { Database, ParticipanteRow, TurmaRow } from '@/lib/database.types'
+import type { Database, ParticipanteRow, TurmaRow } from '@/lib/tipos'
 import type { ColunaKanban } from '@/components/kanban'
 import { FAIXAS_PONTUACAO } from '@/lib/config'
 import { STATUS_KEYS, STATUS_PARTICIPANTE, WEEVO_START, WEEVO_START_KEYS } from './constantes'

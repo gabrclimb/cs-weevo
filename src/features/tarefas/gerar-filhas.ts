@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import type { ParticipanteRow, PlantaoRow, TarefaRow, TurmaRow } from '@/lib/database.types'
+import type { ParticipanteRow, PlantaoRow, TarefaRow, TurmaRow } from '@/lib/tipos'
 import { preencherPlaceholders } from '@/lib/placeholders'
 import { contextoPlaceholders } from './contexto'
 import { useCriarTarefas, type TarefaInsert } from './queries'

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Button, Campo, Dialog, Input, Select, Textarea } from '@/components/ui'
-import type { PlantaoRow } from '@/lib/database.types'
+import type { PlantaoRow } from '@/lib/tipos'
 import { DICA_FORMATO_PLANTAO } from '@/lib/textos-dicas'
 import { useSalvarPlantao } from './queries'
 

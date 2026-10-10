@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Button, Campo, Dialog, Input, Select } from '@/components/ui'
-import type { TurmaRow } from '@/lib/database.types'
+import type { TurmaRow } from '@/lib/tipos'
 import { DICA_TIPO_TURMA } from '@/lib/textos-dicas'
 import { useSalvarTurma } from './queries'
 

@@ -1,4 +1,4 @@
-import type { ParticipanteRow, PlantaoRow, TurmaRow } from '@/lib/database.types'
+import type { ParticipanteRow, PlantaoRow, TurmaRow } from '@/lib/tipos'
 import { proximoPlantao, type ContextoPlaceholder } from '@/lib/placeholders'
 import { nomeTratamento } from '@/features/participantes/constantes'
 

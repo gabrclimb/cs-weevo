@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/lib/tipos'
 import { mensagemErro } from '@/lib/utils'
 import { chaves } from '@/lib/chaves'
 

@@ -11,7 +11,7 @@ import {
   StickyNote,
   type LucideIcon,
 } from 'lucide-react'
-import type { EventoCategoria, EventoTipo } from '@/lib/database.types'
+import type { EventoCategoria, EventoTipo } from '@/lib/tipos'
 
 export const EVENTO: Record<EventoTipo, { label: string; icone: LucideIcon; cor: string }> = {
   mensagem_enviada: { label: 'Mensagem enviada', icone: Send, cor: 'text-sky-600 bg-sky-50' },
