@@ -142,6 +142,10 @@ begin
   end if;
   select * into e from public.estados_presenca where id = new.presenca_id;
 
+  if (select status from public.sessoes where id = new.sessao_id) = 'cancelada' then
+    raise exception 'Não é possível registrar em sessão cancelada.' using errcode = 'check_violation';
+  end if;
+
   if e.conta_presenca and new.modalidade is null then
     raise exception 'Informe a modalidade (presencial ou online).' using errcode = 'check_violation';
   end if;
