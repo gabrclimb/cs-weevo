@@ -181,9 +181,34 @@ set search_path = ''
 as $$
 declare
   e public.estados_presenca;
+  alvo public.registros_encontro;
+  tipo_motivo text;
 begin
   if new.origem <> 'manual' and not public.origem_confiavel() then
     raise exception 'Registro com origem % só pode ser gravado pela carga (service_role).', new.origem using errcode = 'insufficient_privilege';
+  end if;
+
+  -- Correção e anulação (nova versão): o autor corrige o seu; o de outra pessoa (ou da carga) só revisor ou admin,
+  -- com motivo de correção ou de anulação (chip + texto). Anulação sempre exige motivo (6.1).
+  if new.substitui_id is not null then
+    select * into alvo from public.registros_encontro where id = new.substitui_id;
+    if alvo.anulado then
+      raise exception 'Registro anulado não pode ser corrigido nem anulado de novo.' using errcode = 'check_violation';
+    end if;
+    tipo_motivo := case when new.anulado then 'anulacao' else 'correcao' end;
+    if new.correcao_motivo_id is not null
+       and (select tipo_registro from public.motivos where id = new.correcao_motivo_id) <> tipo_motivo then
+      raise exception 'Escolha um motivo de %.', case when new.anulado then 'anulação' else 'correção' end using errcode = 'check_violation';
+    end if;
+    if alvo.registrado_por is distinct from new.registrado_por and new.origem = 'manual' then
+      if not public.tem_papel('revisor') then
+        raise exception 'Só revisor ou admin corrigem ou anulam registro de outra pessoa.' using errcode = 'insufficient_privilege';
+      end if;
+    end if;
+    if (new.anulado or alvo.registrado_por is distinct from new.registrado_por)
+       and (new.correcao_motivo_id is null or public.texto_vazio(new.correcao_motivo_texto)) then
+      raise exception 'Informe o motivo da %.', case when new.anulado then 'anulação' else 'correção' end using errcode = 'check_violation';
+    end if;
   end if;
 
   if new.anulado then
