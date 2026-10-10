@@ -224,3 +224,66 @@ describe('dupla', () => {
     })
   })
 })
+
+describe('o que não se escreve direto', () => {
+  type Tx = import('./transacao').Transacao
+  async function participante(tx: Tx) {
+    const [t] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma D', 'aberta', 'plantao') returning id`)
+    const [p] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ('Pessoa D', $1) returning id`, [t.id])
+    return { turma: t.id, participante: p.id }
+  }
+
+  it.each(['situacao', 'turma_suporte_id', 'projeto', 'parceiro_presenca_id', 'turma_imersao_id'])(
+    'admin não altera %s direto',
+    async (coluna) => {
+      await transacao(db, async (tx) => {
+        const b = await participante(tx)
+        await tx.como('authenticated', await criarUsuario(tx, 'admin'))
+        const valor = { situacao: 'fora_do_suporte', projeto: 'X' }[coluna] ?? b.turma
+        expect((await tx.erro(`update public.participantes set ${coluna} = $2 where id = $1`, [b.participante, valor])) ?? 'sem erro').toMatch(
+          /permission denied/,
+        )
+      })
+    },
+  )
+
+  it.each(['situacao', 'turma_suporte_id', 'projeto', 'parceiro_presenca_id'])('revisor não informa %s ao cadastrar', async (coluna) => {
+    await transacao(db, async (tx) => {
+      const b = await participante(tx)
+      await tx.como('authenticated', await criarUsuario(tx, 'revisor'))
+      const valor = { situacao: 'ativo', projeto: 'X', parceiro_presenca_id: b.participante }[coluna] ?? b.turma
+      expect(
+        (await tx.erro(`insert into public.participantes (nome, turma_imersao_id, ${coluna}) values ('Nova', $1, $2)`, [b.turma, valor])) ?? 'sem erro',
+      ).toMatch(/permission denied/)
+    })
+  })
+})
+
+describe('nada de cadastro se apaga', () => {
+  it.each(['empresas', 'turmas', 'imersao_dias', 'participantes'])('ninguém apaga de %s, nem o admin', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await tx.como('authenticated', await criarUsuario(tx, 'admin'))
+      expect((await tx.erro(`delete from public.${tabela}`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+
+  it('turma com participante não sai nem pelo postgres (RESTRICT)', async () => {
+    await transacao(db, async (tx) => {
+      const [t] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma R', 'aberta', 'plantao') returning id`)
+      await tx.query(`insert into public.participantes (nome, turma_imersao_id) values ('Pessoa R', $1)`, [t.id])
+      expect((await tx.erro(`delete from public.turmas where id = $1`, [t.id])) ?? 'sem erro').toMatch(/foreign key/)
+    })
+  })
+
+  it('revisor arquiva turma, empresa e participante', async () => {
+    await transacao(db, async (tx) => {
+      const [e] = await tx.query<{ id: string }>(`insert into public.empresas (nome) values ('Empresa A') returning id`)
+      const [t] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma A', 'aberta', 'plantao') returning id`)
+      const [p] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ('Pessoa A', $1) returning id`, [t.id])
+      await tx.como('authenticated', await criarUsuario(tx, 'revisor'))
+      expect(await tx.query(`update public.empresas set arquivada = true where id = $1 returning arquivada`, [e.id])).toEqual([{ arquivada: true }])
+      expect(await tx.query(`update public.turmas set arquivada = true where id = $1 returning arquivada`, [t.id])).toEqual([{ arquivada: true }])
+      expect(await tx.query(`update public.participantes set arquivado = true where id = $1 returning arquivado`, [p.id])).toEqual([{ arquivado: true }])
+    })
+  })
+})
