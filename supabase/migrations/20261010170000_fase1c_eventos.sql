@@ -158,6 +158,7 @@ declare
   tipo_motivo text;
   tipo_correcao text;
   alvo public.eventos;
+  etapa public.funil_etapas;
 begin
   if new.origem <> 'manual' and not public.origem_confiavel() then
     raise exception 'Evento com origem % só pode ser gravado pela carga ou pela integração (service_role).', new.origem
@@ -208,8 +209,29 @@ begin
     raise exception 'A fase de % é %.', new.tipo, fase_esperada using errcode = 'check_violation';
   end if;
 
+  -- Referências dentro de dados precisam existir (o jsonb não tem FK).
+  if new.tipo = 'imersao_presenca' and not exists (
+    select 1 from public.imersao_dias d where d.id::text = new.dados ->> 'dia'
+      and d.turma_id = (select turma_imersao_id from public.participantes where id = new.participante_id)) then
+    raise exception 'O dia da imersão não existe na turma do participante.' using errcode = 'foreign_key_violation';
+  end if;
+  if new.tipo = 'suporte_transferido' and not exists (select 1 from public.turmas t where t.id::text = new.dados ->> 'para_turma') then
+    raise exception 'A turma de destino não existe.' using errcode = 'foreign_key_violation';
+  end if;
+  if new.tipo = 'funil_etapa' then
+    select * into etapa from public.funil_etapas f where f.id::text = new.dados ->> 'para';
+    if etapa.id is null then
+      raise exception 'A etapa do funil não existe.' using errcode = 'foreign_key_violation';
+    end if;
+    if new.dados ? 'responsavel_id' and not exists (
+      select 1 from public.perfis pf where pf.user_id::text = new.dados ->> 'responsavel_id' and pf.ativo) then
+      raise exception 'O responsável precisa ter perfil ativo.' using errcode = 'foreign_key_violation';
+    end if;
+  end if;
+
   -- Desvio do esperado (6.1): chip do tipo certo + texto (a carga pode vir sem texto).
   tipo_motivo := case
+    when new.tipo = 'funil_etapa' and etapa.pede_motivo then etapa.tipo_motivo
     when new.tipo = 'suporte_extra_pedido' then 'suporte_extra'
     when new.tipo = 'suporte_transferido' then 'transferencia'
     when new.tipo = 'saiu_do_suporte' then 'saida_suporte'
