@@ -24,6 +24,7 @@ describe('migrations', () => {
       'motivos',
       'participantes',
       'perfis',
+      'sessao_participantes',
       'sessoes',
       'temas',
       'turmas',

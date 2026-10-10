@@ -172,6 +172,7 @@ describe('privilégios de tabela', () => {
       { tabela: 'motivos', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'participantes', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'perfis', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'sessao_participantes', papel: 'authenticated', privilegios: 'DELETE,SELECT' },
       { tabela: 'sessoes', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'temas', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'turmas', papel: 'authenticated', privilegios: 'SELECT' },
