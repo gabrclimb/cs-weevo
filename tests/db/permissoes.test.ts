@@ -44,6 +44,25 @@ describe('anon', () => {
   })
 })
 
+describe('LP pública (regressão)', () => {
+  it('anon lê weevo_depoimentos', async () => {
+    await transacao(db, async (tx) => {
+      await tx.como('anon')
+      const rows = await tx.query<{ chave: string }>(`select chave from public.weevo_depoimentos order by chave`)
+      expect(rows.map((r) => r.chave)).toEqual(['assistencial', 'ciclo_receita', 'oncoclinica', 'superintendente'])
+    })
+  })
+
+  it('anon não altera weevo_depoimentos', async () => {
+    await transacao(db, async (tx) => {
+      await tx.como('anon')
+      expect((await tx.erro(`update public.weevo_depoimentos set video_path = 'x'`)) ?? 'sem erro').toMatch(
+        /permission denied/,
+      )
+    })
+  })
+})
+
 describe('função de trigger', () => {
   // Sem o revoke, a chamada passa da checagem de privilégio e só falha por não estar num trigger.
   it.each(['anon', 'authenticated'] as const)('%s não executa weevo_recalcular_participante', async (papel) => {
