@@ -216,6 +216,27 @@ describe('dupla', () => {
     })
   })
 
+  it.each(['definir_dupla', 'desfazer_dupla'])('anon não executa %s', async (funcao) => {
+    await transacao(db, async (tx) => {
+      const [a, b] = await pessoas(tx, 2)
+      await tx.como('anon')
+      const sql = funcao === 'definir_dupla' ? `select public.definir_dupla($1, $2)` : `select public.desfazer_dupla($1)`
+      expect((await tx.erro(sql, funcao === 'definir_dupla' ? [a, b] : [a])) ?? 'sem erro').toMatch(/permission denied for function/)
+    })
+  })
+
+  it('cs não desfaz dupla', async () => {
+    await transacao(db, async (tx) => {
+      const [a, b] = await pessoas(tx, 2)
+      await tx.como('authenticated', await criarUsuario(tx, 'revisor'))
+      await tx.query(`select public.definir_dupla($1, $2)`, [a, b])
+      await tx.comoPostgres()
+      await tx.como('authenticated', await criarUsuario(tx, 'cs'))
+      expect((await tx.erro(`select public.desfazer_dupla($1)`, [a])) ?? 'sem erro').toMatch(/Apenas revisor ou admin/)
+      expect((await parceiros(tx, [a, b])).every((r) => r.parceiro_presenca_id !== null)).toBe(true)
+    })
+  })
+
   it('cs não define dupla', async () => {
     await transacao(db, async (tx) => {
       const [a, b] = await pessoas(tx, 2)
