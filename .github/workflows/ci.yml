@@ -22,6 +22,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # O build gera src/routeTree.gen.ts (fora do git), que o typecheck precisa. Valores de mentira: este build não é publicado.
+      - run: pnpm build
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: chave-de-teste
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:db
