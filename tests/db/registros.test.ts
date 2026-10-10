@@ -28,3 +28,19 @@ describe('registrar_encontro', () => {
     })
   })
 })
+
+describe('validação do registro', () => {
+  it.each([
+    ['sem temas', { temas: [] }, /tema/],
+    ['sem o que foi feito', { feito: '  ' }, /o que foi feito/],
+    ['sem o planejado', { planejado: null }, /planejado para o próximo/],
+    ['sem status do projeto', { status_projeto: null }, /status do projeto/],
+  ])('rejeita "Veio" %s', async (_caso, mudanca, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = { ...(await veioCompleto(tx, c)), ...mudanca }
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+})
