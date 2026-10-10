@@ -242,3 +242,46 @@ describe('estado do participante derivado dos eventos', () => {
     })
   })
 })
+
+describe('funil Weevo Start', () => {
+  it('etapa que pede motivo (Recusou) exige o motivo dela', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const preco = await motivo(tx, 'recusa_weevo_start', 'Preço')
+      const viagem = await motivo(tx, 'falta', 'Viagem')
+      const base = { participante_id: c.pessoas[0], tipo: 'funil_etapa', dados: { de: c.etapas['Em conversa'], para: c.etapas['Recusou'] } }
+      await tx.como('authenticated', c.csA)
+      expect((await registrarEvento(tx, base)).erro ?? 'sem erro').toMatch(/Escolha o motivo/)
+      expect((await registrarEvento(tx, { ...base, motivo_id: viagem, motivo_texto: 'x' })).erro ?? 'sem erro').toMatch(/recusa_weevo_start/)
+      expect((await registrarEvento(tx, { ...base, motivo_id: preco, motivo_texto: 'Achou caro agora.' })).erro).toBeNull()
+    })
+  })
+
+  it('etapa sem motivo não pede; etapa ou responsável inexistente é rejeitado', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const fantasma = '00000000-0000-4000-8000-00000000dead'
+      await tx.como('authenticated', c.csA)
+      expect((await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'funil_etapa', dados: { para: c.etapas['Candidato'], responsavel_id: c.csA } })).erro).toBeNull()
+      expect((await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'funil_etapa', dados: { para: fantasma } })).erro ?? 'sem erro').toMatch(/etapa do funil/)
+      expect(
+        (await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'funil_etapa', dados: { para: c.etapas['Candidato'], responsavel_id: fantasma } })).erro ?? 'sem erro',
+      ).toMatch(/responsável/)
+    })
+  })
+})
+
+describe('referências dentro de dados', () => {
+  it.each([
+    ['dia da imersão inexistente', (c: CenarioEventos, x: string) => ({ tipo: 'imersao_presenca', dados: { dia: x, presente: true } }), /dia da imersão/],
+    ['turma de destino inexistente', (c: CenarioEventos, x: string) => ({ tipo: 'suporte_transferido', dados: { de_turma: c.turma, para_turma: x } }), /turma de destino/],
+  ] as const)('rejeita %s', async (_caso, montar, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const m = await motivo(tx, 'transferencia', 'Agenda')
+      await tx.como('authenticated', c.csA)
+      const ev = { participante_id: c.pessoas[0], motivo_id: m, motivo_texto: 'x', ...montar(c, '00000000-0000-4000-8000-00000000dead') }
+      expect((await registrarEvento(tx, ev)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+})
