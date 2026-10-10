@@ -273,7 +273,7 @@ describe('funil Weevo Start', () => {
 
 describe('referências dentro de dados', () => {
   it.each([
-    ['dia da imersão inexistente', (c: CenarioEventos, x: string) => ({ tipo: 'imersao_presenca', dados: { dia: x, presente: true } }), /dia da imersão/],
+    ['dia da imersão inexistente', (_c: CenarioEventos, x: string) => ({ tipo: 'imersao_presenca', dados: { dia: x, presente: true } }), /dia da imersão/],
     ['turma de destino inexistente', (c: CenarioEventos, x: string) => ({ tipo: 'suporte_transferido', dados: { de_turma: c.turma, para_turma: x } }), /turma de destino/],
   ] as const)('rejeita %s', async (_caso, montar, mensagem) => {
     await transacao(db, async (tx) => {
