@@ -45,3 +45,34 @@ describe('registros não se alteram nem se apagam', () => {
     })
   })
 })
+
+function corrigir(tx: Transacao, substitui: string, dados: Record<string, unknown>) {
+  return tx.resultado<{ id: string }>(`select public.corrigir_registro_encontro($1, $2::jsonb) as id`, [substitui, JSON.stringify(dados)])
+}
+
+/** Versões do par sessão-participante, da mais antiga à mais nova, com quem é a vigente. */
+function versoes(tx: Transacao, c: Cenario) {
+  return tx.query<{ feito: string; registrado_por: string; vigente: boolean }>(
+    `select r.feito, r.registrado_por,
+            not r.anulado and not exists (select 1 from public.registros_encontro x where x.substitui_id = r.id) as vigente
+     from public.registros_encontro r
+     where r.sessao_id = $1 and r.participante_id = $2
+     order by r.registrado_em, r.substitui_id nulls first`,
+    [c.sessao, c.pessoas[0]],
+  )
+}
+
+describe('correção por nova versão', () => {
+  it('quem registrou corrige: nova versão vigente, a anterior continua visível', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const dados = await veioCompleto(tx, c, { feito: 'Montou o fluxo e publicou.' })
+      await tx.como('authenticated', c.csA)
+      expect((await corrigir(tx, c.registro, dados)).erro).toBeNull()
+      expect(await versoes(tx, c)).toEqual([
+        { feito: 'Montou o primeiro fluxo.', registrado_por: c.csA, vigente: false },
+        { feito: 'Montou o fluxo e publicou.', registrado_por: c.csA, vigente: true },
+      ])
+    })
+  })
+})
