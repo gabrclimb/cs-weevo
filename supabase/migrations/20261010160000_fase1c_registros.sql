@@ -316,12 +316,40 @@ create policy "cs_convoca_em_extra" on public.sessao_participantes for insert to
 -- Além da falta de GRANT de UPDATE/DELETE, um trigger barra qualquer papel, inclusive service_role e postgres.
 -- Correção e anulação são novas versões (substitui_id).
 
+-- Única exceção: o --resetar da carga (seção 8.1) apaga linhas de origem import, só pelo service_role
+-- e só enquanto configuracoes.carga_liberada = true (o admin desliga no lançamento).
+create function public.reset_de_carga_permitido(p_origem text)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select p_origem = 'import'
+     and coalesce((select auth.jwt()) ->> 'role', '') = 'service_role'
+     and coalesce((select valor = 'true'::jsonb from public.configuracoes where chave = 'carga_liberada'), false);
+$$;
+
+grant execute on function public.reset_de_carga_permitido(text) to authenticated, service_role;
+
 create function public.bloquear_alteracao()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  v_origem text;
 begin
+  if tg_op = 'DELETE' then
+    -- Um ramo por tabela: o plpgsql resolve o campo de old mesmo num CASE que não o usaria.
+    if tg_table_name = 'registro_temas' then
+      select r.origem into v_origem from public.registros_encontro r where r.id = old.registro_id;
+    else
+      v_origem := old.origem;
+    end if;
+    if public.reset_de_carga_permitido(v_origem) then
+      return old;
+    end if;
+  end if;
   raise exception 'Registros não se alteram nem se apagam: corrija com uma nova versão.' using errcode = 'restrict_violation';
 end;
 $$;
