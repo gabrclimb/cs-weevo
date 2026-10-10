@@ -134,6 +134,32 @@ describe('authenticated sem linha em weevo_admins (regressão)', () => {
   })
 })
 
+describe('privilégios de tabela', () => {
+  // Só o DML que as policies usam; sem TRUNCATE, REFERENCES nem TRIGGER. Explícitos, para valer
+  // igual no remoto (que expõe tabelas novas) e no Supabase local (que não expõe).
+  it('são exatamente os esperados para anon e authenticated', async () => {
+    const rows = await db.query<{ tabela: string; papel: string; privilegios: string }>(
+      `select table_name as tabela, grantee as papel, string_agg(privilege_type, ',' order by privilege_type) as privilegios
+       from information_schema.role_table_grants
+       where table_schema = 'public' and grantee in ('anon', 'authenticated')
+       group by 1, 2 order by 1, 2`,
+    )
+    const DML = 'DELETE,INSERT,SELECT,UPDATE'
+    expect(rows).toEqual([
+      { tabela: 'message_template_categories', papel: 'authenticated', privilegios: DML },
+      { tabela: 'message_templates', papel: 'authenticated', privilegios: DML },
+      { tabela: 'weevo_admins', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'weevo_depoimentos', papel: 'anon', privilegios: 'SELECT' },
+      { tabela: 'weevo_depoimentos', papel: 'authenticated', privilegios: 'SELECT,UPDATE' },
+      { tabela: 'weevo_eventos', papel: 'authenticated', privilegios: 'DELETE,INSERT,SELECT' },
+      { tabela: 'weevo_participantes', papel: 'authenticated', privilegios: DML },
+      { tabela: 'weevo_plantoes', papel: 'authenticated', privilegios: DML },
+      { tabela: 'weevo_tarefas', papel: 'authenticated', privilegios: DML },
+      { tabela: 'weevo_turmas', papel: 'authenticated', privilegios: DML },
+    ])
+  })
+})
+
 describe('objetos criados depois, sem GRANT explícito', () => {
   // Criados como postgres, como as migrations: o default privileges não pode expô-los.
   it.each(['anon', 'authenticated'] as const)('%s não acessa tabela nova', async (papel) => {
