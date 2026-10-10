@@ -14,7 +14,11 @@ export async function transacao(db: ClienteDb, fn: (tx: Transacao) => Promise<vo
   try {
     await fn({
       query: db.query,
-      como: async () => {},
+      como: async (papel, userId) => {
+        const claims = JSON.stringify(userId ? { role: papel, sub: userId } : { role: papel })
+        await db.query(`select set_config('request.jwt.claims', $1, true)`, [claims])
+        await db.exec(`set local role ${papel}`)
+      },
     })
   } finally {
     await db.exec('rollback')
