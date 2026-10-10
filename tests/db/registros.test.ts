@@ -315,6 +315,43 @@ describe('origem da carga (só service_role)', () => {
   })
 })
 
+describe('eventos opcionais no mesmo formulário (7.3, item 5)', () => {
+  it('entram junto com o registro, ligados a ele e à sessão', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c, {
+        eventos: [
+          { tipo: 'sinal_interesse', dados: { texto: 'Quer saber do Weevo Start.' } },
+          { tipo: 'ganho_declarado', dados: { antes: '3 horas', depois: '20 minutos', unidade: 'por proposta' } },
+        ],
+      })
+      await tx.como('authenticated', c.csA)
+      const { erro, linhas } = await registrar(tx, dados)
+      expect(erro).toBeNull()
+      expect(
+        await tx.query(
+          `select tipo, registro_id = $1 as do_registro, sessao_id = $2 as da_sessao, participante_id = $3 as do_participante, registrado_por = $4 as autor
+           from public.eventos order by tipo`,
+          [linhas[0].id, c.sessao, c.pessoas[0], c.csA],
+        ),
+      ).toEqual([
+        { tipo: 'ganho_declarado', do_registro: true, da_sessao: true, do_participante: true, autor: true },
+        { tipo: 'sinal_interesse', do_registro: true, da_sessao: true, do_participante: true, autor: true },
+      ])
+    })
+  })
+
+  it('um evento inválido desfaz o registro inteiro', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c, { eventos: [{ tipo: 'sinal_interesse', dados: { texto: '' } }] })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/Dados inválidos/)
+      expect(await tx.query(`select (select count(*) from public.registros_encontro)::int r, (select count(*) from public.eventos)::int e`)).toEqual([{ r: 0, e: 0 }])
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
