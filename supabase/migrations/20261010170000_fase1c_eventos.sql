@@ -155,6 +155,7 @@ as $$
 declare
   problema text;
   fase_esperada text;
+  tipo_motivo text;
 begin
   if new.origem <> 'manual' and not public.origem_confiavel() then
     raise exception 'Evento com origem % só pode ser gravado pela carga ou pela integração (service_role).', new.origem
@@ -173,6 +174,32 @@ begin
   problema := public.problema_nos_dados(new.tipo, new.dados);
   if problema is not null then
     raise exception 'Dados inválidos para %: %.', new.tipo, problema using errcode = 'check_violation';
+  end if;
+
+  if fase_esperada is null and new.fase is null then
+    raise exception 'Informe a fase da nota.' using errcode = 'check_violation';
+  end if;
+  if fase_esperada is not null and new.fase <> fase_esperada then
+    raise exception 'A fase de % é %.', new.tipo, fase_esperada using errcode = 'check_violation';
+  end if;
+
+  -- Desvio do esperado (6.1): chip do tipo certo + texto (a carga pode vir sem texto).
+  tipo_motivo := case
+    when new.tipo = 'suporte_extra_pedido' then 'suporte_extra'
+    when new.tipo = 'suporte_transferido' then 'transferencia'
+    when new.tipo = 'saiu_do_suporte' then 'saida_suporte'
+    when new.tipo = 'imersao_presenca' and new.dados -> 'presente' = 'false'::jsonb then 'falta'
+  end;
+  if tipo_motivo is not null then
+    if new.motivo_id is null then
+      raise exception 'Escolha o motivo.' using errcode = 'check_violation';
+    end if;
+    if (select tipo_registro from public.motivos where id = new.motivo_id) <> tipo_motivo then
+      raise exception 'Escolha um motivo do tipo %.', tipo_motivo using errcode = 'check_violation';
+    end if;
+    if new.origem = 'manual' and public.texto_vazio(new.motivo_texto) then
+      raise exception 'Escreva o texto do motivo.' using errcode = 'check_violation';
+    end if;
   end if;
   return new;
 end;
