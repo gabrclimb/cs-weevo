@@ -113,3 +113,62 @@ insert into public.configuracoes (chave, valor) values
   ('alertas', '{"sem_contato_dias": 10, "contato_sem_resposta_horas": 48, "sessao_sem_registro_dias": 1}'),
   -- O admin desliga no lançamento: daí em diante a carga da planilha não pode mais ser resetada.
   ('carga_liberada', 'true');
+
+-- Validação ---------------------------------------------------------------
+
+create function public.validar_configuracao()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v jsonb := new.valor;
+  chaves text[];
+  esperadas text[];
+  k text;
+  soma numeric := 0;
+begin
+  case new.chave
+    when 'pesos', 'alertas' then
+      esperadas := case new.chave
+        when 'pesos' then array['grupo', 'interesse', 'plataforma', 'presenca', 'resposta', 'status_projeto']
+        else array['contato_sem_resposta_horas', 'sem_contato_dias', 'sessao_sem_registro_dias']
+      end;
+      if jsonb_typeof(v) <> 'object' then
+        raise exception 'Configuração inválida: % precisa ser um objeto.', new.chave using errcode = 'check_violation';
+      end if;
+      select array_agg(c order by c) into chaves from jsonb_object_keys(v) as c;
+      if chaves is distinct from esperadas then
+        raise exception 'Configuração inválida: % precisa ter exatamente as chaves %.', new.chave, esperadas using errcode = 'check_violation';
+      end if;
+      foreach k in array esperadas loop
+        if jsonb_typeof(v -> k) <> 'number' or (v ->> k)::numeric < 0 or (new.chave = 'alertas' and (v ->> k)::numeric <= 0) then
+          raise exception 'Configuração inválida: %.% precisa ser um número %.', new.chave, k,
+            case new.chave when 'pesos' then 'maior ou igual a zero' else 'positivo' end using errcode = 'check_violation';
+        end if;
+        soma := soma + (v ->> k)::numeric;
+      end loop;
+      if new.chave = 'pesos' and soma <> 100 then
+        raise exception 'Configuração inválida: os pesos somam %, precisam somar 100.', soma using errcode = 'check_violation';
+      end if;
+    when 'faixas' then
+      if jsonb_typeof(v -> 'quente') <> 'number' or jsonb_typeof(v -> 'morno') <> 'number'
+         or not ((v ->> 'morno')::numeric > 0 and (v ->> 'morno')::numeric < (v ->> 'quente')::numeric and (v ->> 'quente')::numeric <= 100) then
+        raise exception 'Configuração inválida: faixas precisam de 0 < morno < quente <= 100.' using errcode = 'check_violation';
+      end if;
+    when 'carga_liberada' then
+      if jsonb_typeof(v) <> 'boolean' then
+        raise exception 'Configuração inválida: carga_liberada precisa ser true ou false.' using errcode = 'check_violation';
+      end if;
+    else
+      raise exception 'Configuração inválida: chave desconhecida %.', new.chave using errcode = 'check_violation';
+  end case;
+
+  new.atualizado_em := now();
+  new.atualizado_por := (select auth.uid());
+  return new;
+end;
+$$;
+
+create trigger configuracoes_validar before insert or update on public.configuracoes
+  for each row execute function public.validar_configuracao();
