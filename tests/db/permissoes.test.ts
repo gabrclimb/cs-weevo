@@ -134,6 +134,26 @@ describe('authenticated sem linha em weevo_admins (regressão)', () => {
   })
 })
 
+describe('objetos criados depois, sem GRANT explícito', () => {
+  // Criados como postgres, como as migrations: o default privileges não pode expô-los.
+  it.each(['anon', 'authenticated'] as const)('%s não acessa tabela nova', async (papel) => {
+    await transacao(db, async (tx) => {
+      await tx.query(`create table public.tabela_futura (id int)`)
+      await tx.como(papel, papel === 'authenticated' ? ADMIN : undefined)
+      expect((await tx.erro(`select * from public.tabela_futura`)) ?? 'sem erro').toMatch(/permission denied/)
+      expect((await tx.erro(`insert into public.tabela_futura values (1)`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+
+  it.each(['anon', 'authenticated'] as const)('%s não executa função nova', async (papel) => {
+    await transacao(db, async (tx) => {
+      await tx.query(`create function public.funcao_futura() returns int language sql as 'select 1'`)
+      await tx.como(papel, papel === 'authenticated' ? ADMIN : undefined)
+      expect((await tx.erro(`select public.funcao_futura()`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+})
+
 describe('LP pública (regressão)', () => {
   it('anon lê weevo_depoimentos', async () => {
     await transacao(db, async (tx) => {
