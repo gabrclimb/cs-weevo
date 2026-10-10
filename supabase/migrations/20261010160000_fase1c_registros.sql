@@ -169,6 +169,20 @@ begin
     if new.status_projeto is null then
       raise exception 'Informe o status do projeto.' using errcode = 'check_violation';
     end if;
+    -- Continuidade (6.5): havendo planejado num encontro anterior (de qualquer CS), diga se cumpriu.
+    if new.cumpriu_planejado_anterior is null and exists (
+      select 1
+      from public.registros_encontro r
+      join public.sessoes s on s.id = r.sessao_id
+      join public.sessoes atual on atual.id = new.sessao_id
+      where r.participante_id = new.participante_id
+        and not r.anulado
+        and not exists (select 1 from public.registros_encontro x where x.substitui_id = r.id)
+        and not public.texto_vazio(r.planejado)
+        and (s.data, coalesce(s.hora_inicio, '00:00')) < (atual.data, coalesce(atual.hora_inicio, '00:00'))
+    ) then
+      raise exception 'Diga se cumpriu o planejado do encontro anterior.' using errcode = 'check_violation';
+    end if;
   end if;
 
   if new.status_projeto = 'travou' then
