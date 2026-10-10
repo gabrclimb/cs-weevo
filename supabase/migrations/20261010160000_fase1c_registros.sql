@@ -75,6 +75,13 @@ grant insert (sessao_id, participante_id, presenca_id, modalidade, motivo_id, mo
   on public.registros_encontro to authenticated;
 grant insert on public.registro_temas to authenticated;
 
+-- service_role (carga da planilha): GRANT explícito, sem depender do default do projeto (o Supabase local não concede).
+-- Lê o que os triggers consultam; grava fatos; DELETE só passa pela exceção do --resetar (trigger).
+grant select on public.perfis, public.estados_presenca, public.motivos, public.temas, public.funil_etapas, public.configuracoes,
+                public.empresas, public.turmas, public.imersao_dias, public.participantes, public.sessoes, public.sessao_participantes
+  to service_role;
+grant select, insert, delete on public.registros_encontro, public.registro_temas to service_role;
+
 create policy "membros_leem" on public.registros_encontro for select to authenticated using ((select public.tem_papel('cs')));
 create policy "membros_registram" on public.registros_encontro for insert to authenticated with check ((select public.tem_papel('cs')));
 create policy "membros_leem" on public.registro_temas for select to authenticated using ((select public.tem_papel('cs')));

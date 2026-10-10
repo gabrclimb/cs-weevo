@@ -345,7 +345,11 @@ describe('eventos e evidências não se alteram nem se apagam', () => {
     await transacao(db, async (tx) => {
       const c = await comEventoEEvidencia(tx)
       await tx.como('service_role')
-      for (const [nome, sql] of ALTERACOES) expect((await tx.erro(sql, [c.evento])) ?? 'sem erro', nome).toMatch(/não se alteram nem se apagam/)
+      // Sem GRANT de UPDATE (e de DELETE em evidências), o bloqueio pode vir antes do trigger.
+      for (const [nome, sql] of ALTERACOES) {
+        const esperado = nome === 'delete do evento' ? /não se alteram nem se apagam/ : /permission denied|não se alteram nem se apagam/
+        expect((await tx.erro(sql, [c.evento])) ?? 'sem erro', nome).toMatch(esperado)
+      }
     })
   })
 

@@ -41,7 +41,11 @@ describe('registros não se alteram nem se apagam', () => {
     await transacao(db, async (tx) => {
       const c = await comRegistro(tx)
       if (papel === 'service_role') await tx.como('service_role')
-      for (const [nome, sql] of ALTERACOES) expect((await tx.erro(sql, [c.registro])) ?? 'sem erro', nome).toMatch(/não se alteram nem se apagam/)
+      // service_role não tem GRANT de UPDATE (barrado antes do trigger); o DELETE existe para o --resetar e o trigger barra.
+      for (const [nome, sql] of ALTERACOES) {
+        const esperado = papel === 'service_role' && nome.startsWith('update') ? /permission denied|não se alteram nem se apagam/ : /não se alteram nem se apagam/
+        expect((await tx.erro(sql, [c.registro])) ?? 'sem erro', nome).toMatch(esperado)
+      }
     })
   })
 })
@@ -240,7 +244,7 @@ describe('exceção do --resetar (carga da planilha)', () => {
       const c = await comCarga(tx)
       await tx.como('service_role')
       expect((await tx.erro(`update public.registros_encontro set modalidade = 'online' where id = $1`, [c.carga])) ?? 'sem erro').toMatch(
-        /não se alteram nem se apagam/,
+        /permission denied|não se alteram nem se apagam/,
       )
     })
   })

@@ -274,6 +274,10 @@ grant insert (participante_id, fase, tipo, ocorrido_em, data_aproximada, motivo_
   on public.eventos to authenticated;
 grant insert (evento_id, participante_id, tipo, storage_path, url) on public.evidencias to authenticated;
 
+-- service_role (carga e integração): GRANT explícito; DELETE de eventos só pela exceção do --resetar.
+grant select, insert, delete on public.eventos to service_role;
+grant select, insert on public.evidencias to service_role;
+
 create policy "membros_leem" on public.eventos for select to authenticated using ((select public.tem_papel('cs')));
 create policy "membros_registram" on public.eventos for insert to authenticated with check ((select public.tem_papel('cs')));
 create policy "membros_leem" on public.evidencias for select to authenticated using ((select public.tem_papel('cs')));
