@@ -109,3 +109,25 @@ describe('quem corrige', () => {
     })
   })
 })
+
+describe('cadeia de versões', () => {
+  it('uma versão já substituída não pode ser corrigida de novo (a cadeia é linear)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const v2 = await veioCompleto(tx, c, { feito: 'Versão 2.' })
+      const v3 = await veioCompleto(tx, c, { feito: 'Versão 3 sobre a 1.' })
+      await tx.como('authenticated', c.csA)
+      expect((await corrigir(tx, c.registro, v2)).erro).toBeNull()
+      expect((await corrigir(tx, c.registro, v3)).erro ?? 'sem erro').toMatch(/duplicate key/)
+    })
+  })
+
+  it('a correção é do mesmo par sessão-participante', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const dados = await veioCompleto(tx, c, { participante_id: c.pessoas[1], substitui_id: c.registro })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/foreign key/)
+    })
+  })
+})
