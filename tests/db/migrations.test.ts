@@ -14,8 +14,14 @@ describe('migrations', () => {
       `select table_name from information_schema.tables where table_schema = 'public' order by 1`,
     )
     expect(rows.map((r) => r.table_name)).toEqual([
+      'configuracoes',
+      'estados_presenca',
+      'funil_etapas',
       'message_template_categories',
       'message_templates',
+      'motivos',
+      'perfis',
+      'temas',
       'weevo_admins',
       'weevo_depoimentos',
       'weevo_eventos',
