@@ -164,6 +164,7 @@ describe('privilégios de tabela', () => {
     expect(rows).toEqual([
       { tabela: 'message_template_categories', papel: 'authenticated', privilegios: DML },
       { tabela: 'message_templates', papel: 'authenticated', privilegios: DML },
+      { tabela: 'perfis', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'weevo_admins', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'anon', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'authenticated', privilegios: 'SELECT,UPDATE' },

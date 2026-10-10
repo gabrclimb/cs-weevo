@@ -81,3 +81,10 @@ set search_path = ''
 as $$
   select public.tem_papel('admin');
 $$;
+
+-- Acesso: membro ativo vê o time; só o admin altera (nome, papel, ativo). Ninguém insere (o trigger cria) nem apaga.
+grant select on public.perfis to authenticated;
+grant update (nome, papel, ativo) on public.perfis to authenticated;
+
+create policy "membros_leem" on public.perfis
+  for select to authenticated using ((select public.tem_papel('cs')));
