@@ -24,6 +24,7 @@ describe('migrations', () => {
       'motivos',
       'participantes',
       'perfis',
+      'sessoes',
       'temas',
       'turmas',
       'weevo_admins',
