@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [viteReact()],
   test: {
     projects: [
-      { extends: true, test: { name: 'unit', include: ['src/**/*.test.{ts,tsx}'] } },
+      { extends: true, test: { name: 'unit', include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'] } },
       { extends: true, test: { name: 'db', include: ['tests/db/**/*.test.ts'], testTimeout: 30_000, hookTimeout: 60_000 } },
     ],
   },
