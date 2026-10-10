@@ -179,3 +179,66 @@ describe('correção e anulação de eventos', () => {
     })
   })
 })
+
+describe('estado do participante derivado dos eventos', () => {
+  const participante = (tx: Transacao, id: string) =>
+    tx.query<{ situacao: string; turma_suporte_id: string; projeto: string | null }>(
+      `select situacao, turma_suporte_id, projeto from public.participantes where id = $1`,
+      [id],
+    ).then((r) => r[0])
+
+  it('saiu_do_suporte leva a fora_do_suporte; retornou_ao_suporte volta a ativo', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const m = await motivo(tx, 'saida_suporte', 'Não precisa de suporte')
+      await tx.como('authenticated', c.csA)
+      await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'saiu_do_suporte', motivo_id: m, motivo_texto: 'Já resolveu.', ocorrido_em: '2026-10-05T10:00:00Z' })
+      expect((await participante(tx, c.pessoas[0])).situacao).toBe('fora_do_suporte')
+      expect((await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'retornou_ao_suporte', ocorrido_em: '2026-10-08T10:00:00Z' })).erro).toBeNull()
+      expect((await participante(tx, c.pessoas[0])).situacao).toBe('ativo')
+    })
+  })
+
+  it('anular o saiu_do_suporte devolve o ativo', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const m = await motivo(tx, 'saida_suporte', 'Desistiu')
+      const a = await motivo(tx, 'anulacao', 'Lançado por engano')
+      await tx.como('authenticated', c.csA)
+      const { linhas } = await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'saiu_do_suporte', motivo_id: m, motivo_texto: 'Desistiu.' })
+      expect((await participante(tx, c.pessoas[0])).situacao).toBe('fora_do_suporte')
+      expect((await anularEvento(tx, linhas[0].id, a, 'Era outra pessoa.')).erro).toBeNull()
+      expect((await participante(tx, c.pessoas[0])).situacao).toBe('ativo')
+    })
+  })
+
+  it('suporte_transferido muda a turma de suporte; anular volta para a da imersão', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const m = await motivo(tx, 'transferencia', 'Sem computador')
+      const a = await motivo(tx, 'anulacao', 'Lançado por engano')
+      await tx.como('authenticated', c.csA)
+      const { linhas } = await registrarEvento(tx, {
+        participante_id: c.pessoas[0],
+        tipo: 'suporte_transferido',
+        dados: { de_turma: c.turma, para_turma: c.outraTurma },
+        motivo_id: m,
+        motivo_texto: 'Vai fazer com a turma de outubro.',
+      })
+      expect((await participante(tx, c.pessoas[0])).turma_suporte_id).toBe(c.outraTurma)
+      await anularEvento(tx, linhas[0].id, a, 'Transferência cancelada.')
+      expect((await participante(tx, c.pessoas[0])).turma_suporte_id).toBe(c.turma)
+    })
+  })
+
+  it('projeto_definido preenche o projeto; a correção troca', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('authenticated', c.csA)
+      const { linhas } = await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'projeto_definido', dados: { projeto: 'Agente de vendas' } })
+      expect((await participante(tx, c.pessoas[0])).projeto).toBe('Agente de vendas')
+      await corrigirEvento(tx, linhas[0].id, { tipo: 'projeto_definido', dados: { projeto: 'Agente de atendimento' } })
+      expect((await participante(tx, c.pessoas[0])).projeto).toBe('Agente de atendimento')
+    })
+  })
+})
