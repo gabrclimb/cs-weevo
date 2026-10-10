@@ -88,3 +88,29 @@ grant update (nome, papel, ativo) on public.perfis to authenticated;
 
 create policy "membros_leem" on public.perfis
   for select to authenticated using ((select public.tem_papel('cs')));
+
+create policy "admin_altera" on public.perfis
+  for update to authenticated
+  using ((select public.tem_papel('admin')))
+  with check ((select public.tem_papel('admin')));
+
+-- O sistema nunca fica sem admin ativo (senão ninguém mais ativa usuários nem muda configurações).
+create function public.manter_um_admin()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.papel = 'admin' and old.ativo and (new.papel <> 'admin' or not new.ativo)
+     and not exists (
+       select 1 from public.perfis p
+       where p.user_id <> old.user_id and p.papel = 'admin' and p.ativo
+     ) then
+    raise exception 'Não é possível remover o último admin ativo.' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger perfis_manter_um_admin before update on public.perfis
+  for each row execute function public.manter_um_admin();
