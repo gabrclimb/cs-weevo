@@ -260,6 +260,8 @@ create trigger eventos_imutavel before update or delete on public.eventos
   for each row execute function public.bloquear_alteracao();
 create trigger evidencias_carimbo before insert on public.evidencias
   for each row execute function public.carimbar_registro();
+create trigger evidencias_imutavel before update or delete on public.evidencias
+  for each row execute function public.bloquear_alteracao();
 
 grant execute on function public.fase_do_tipo(text), public.problema_nos_dados(text, jsonb) to authenticated, service_role;
 

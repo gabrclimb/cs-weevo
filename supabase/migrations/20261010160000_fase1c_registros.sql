@@ -343,6 +343,8 @@ begin
     -- Um ramo por tabela: o plpgsql resolve o campo de old mesmo num CASE que não o usaria.
     if tg_table_name = 'registro_temas' then
       select r.origem into v_origem from public.registros_encontro r where r.id = old.registro_id;
+    elsif tg_table_name = 'evidencias' then
+      v_origem := null; -- a carga não cria evidências: nunca se apagam
     else
       v_origem := old.origem;
     end if;
