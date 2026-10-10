@@ -28,4 +28,18 @@ describe('anon', () => {
       expect((await tx.erro(`select * from public.${tabela}`)) ?? 'sem erro').toMatch(/permission denied/)
     })
   })
+
+  // O privilégio barra antes do RLS: "permission denied", não "violates row-level security".
+  it.each(TABELAS_CS)('não escreve em %s', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await tx.como('anon')
+      for (const sql of [
+        `insert into public.${tabela} default values`,
+        `update public.${tabela} set created_at = now()`,
+        `delete from public.${tabela}`,
+      ]) {
+        expect((await tx.erro(sql)) ?? 'sem erro', sql).toMatch(/permission denied/)
+      }
+    })
+  })
 })
