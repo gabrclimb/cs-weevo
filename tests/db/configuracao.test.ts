@@ -124,3 +124,49 @@ describe('validação de configuracoes', () => {
     })
   })
 })
+
+describe('quem altera a configuração', () => {
+  // Uma escrita por tabela; cada uma muda pelo menos uma linha quando permitida.
+  const ESCRITAS: [tabela: string, sql: string][] = [
+    ['estados_presenca', `update public.estados_presenca set rotulo = rotulo || ' ' where chave = 'veio' returning 1`],
+    ['motivos', `insert into public.motivos (tipo_registro, rotulo, ordem) values ('falta', 'Motivo de teste', 99) returning 1`],
+    ['temas', `insert into public.temas (rotulo, ordem) values ('Tema de teste', 99) returning 1`],
+    ['funil_etapas', `update public.funil_etapas set ordem = ordem where rotulo = 'Candidato' returning 1`],
+    ['configuracoes (carga_liberada)', `update public.configuracoes set valor = 'false' where chave = 'carga_liberada' returning 1`],
+    ['configuracoes (pesos)', `update public.configuracoes set valor = valor where chave = 'pesos' returning 1`],
+  ]
+
+  async function tentar(tx: Transacao, sql: string): Promise<'gravou' | 'barrado'> {
+    const erro = await tx.erro(sql)
+    if (erro) {
+      expect(erro).toMatch(/permission denied|row-level security/)
+      return 'barrado'
+    }
+    return (await tx.query(sql)).length ? 'gravou' : 'barrado'
+  }
+
+  it.each(['cs', 'revisor'] as const)('%s não altera listas nem parâmetros', async (papel) => {
+    for (const [tabela, sql] of ESCRITAS) {
+      await transacao(db, async (tx) => {
+        await tx.como('authenticated', await criarUsuario(tx, papel))
+        expect(await tentar(tx, sql), tabela).toBe('barrado')
+      })
+    }
+  })
+
+  it('admin cria, edita e desativa', async () => {
+    for (const [tabela, sql] of [...ESCRITAS, ['motivos (desativar)', `update public.motivos set ativo = false where rotulo = 'Viagem' returning 1`] as const]) {
+      await transacao(db, async (tx) => {
+        await tx.como('authenticated', await criarUsuario(tx, 'admin'))
+        expect(await tentar(tx, sql), tabela).toBe('gravou')
+      })
+    }
+  })
+
+  it.each(['estados_presenca', 'motivos', 'temas', 'funil_etapas', 'configuracoes'])('ninguém apaga de %s, nem o admin', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await tx.como('authenticated', await criarUsuario(tx, 'admin'))
+      expect((await tx.erro(`delete from public.${tabela}`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+})
