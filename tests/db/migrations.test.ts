@@ -16,6 +16,7 @@ describe('migrations', () => {
     expect(rows.map((r) => r.table_name)).toEqual([
       'message_template_categories',
       'message_templates',
+      'perfis',
       'weevo_admins',
       'weevo_depoimentos',
       'weevo_eventos',
