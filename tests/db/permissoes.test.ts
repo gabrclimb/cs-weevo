@@ -46,11 +46,21 @@ describe('anon', () => {
 
 const ADMIN = '00000000-0000-4000-8000-0000000000a1'
 
+/** Desde a fase 1a, admin é quem tem perfil admin ativo (weevo_admins só serve ao guard antigo do front). */
+async function tornarAdmin(tx: Transacao, id: string) {
+  await tx.query(
+    `insert into public.perfis (user_id, nome, papel, ativo) values ($1, 'Admin', 'admin', true)
+     on conflict (user_id) do update set papel = 'admin', ativo = true`,
+    [id],
+  )
+}
+
 describe('admin (regressão)', () => {
   it.each(TABELAS_CS)('lê %s', async (tabela) => {
     await transacao(db, async (tx) => {
       await tx.query(`insert into auth.users (id) values ($1)`, [ADMIN])
       await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+      await tornarAdmin(tx, ADMIN)
       await tx.como('authenticated', ADMIN)
       expect(await tx.erro(`select * from public.${tabela}`)).toBeNull()
     })
@@ -60,6 +70,7 @@ describe('admin (regressão)', () => {
     await transacao(db, async (tx) => {
       await tx.query(`insert into auth.users (id) values ($1)`, [ADMIN])
       await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+      await tornarAdmin(tx, ADMIN)
       await tx.como('authenticated', ADMIN)
 
       const [turma] = await tx.query<{ id: string }>(`insert into public.weevo_turmas (nome) values ('Turma Teste') returning id`)
@@ -89,6 +100,7 @@ const SEM_ACESSO = '00000000-0000-4000-8000-0000000000b1'
 async function semearCs(tx: Transacao) {
   await tx.query(`insert into auth.users (id) values ($1), ($2)`, [ADMIN, SEM_ACESSO])
   await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+  await tornarAdmin(tx, ADMIN)
   const [t] = await tx.query<{ id: string }>(`insert into public.weevo_turmas (nome) values ('Turma Teste') returning id`)
   const [p] = await tx.query<{ id: string }>(
     `insert into public.weevo_participantes (nome, turma_id) values ('Pessoa Fictícia', $1) returning id`,
