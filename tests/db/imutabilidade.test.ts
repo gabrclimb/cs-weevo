@@ -131,3 +131,52 @@ describe('cadeia de versões', () => {
     })
   })
 })
+
+describe('anulação (nova versão)', () => {
+  const anular = (tx: Transacao, id: string, motivoId: string | null, texto: string) =>
+    tx.resultado<{ id: string }>(`select public.anular_registro_encontro($1, $2, $3) as id`, [id, motivoId, texto])
+  const motivoDe = async (tx: Transacao, tipo: string, rotulo: string) =>
+    (await tx.query<{ id: string }>(`select id from public.motivos where tipo_registro = $1 and rotulo = $2`, [tipo, rotulo]))[0].id
+
+  it('anula o próprio registro com motivo: o par fica sem vigente, as versões continuam visíveis', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const m = await motivoDe(tx, 'anulacao', 'Lançado por engano')
+      await tx.como('authenticated', c.csA)
+      expect((await anular(tx, c.registro, m, 'Era outra pessoa.')).erro).toBeNull()
+      const v = await versoes(tx, c)
+      expect(v.map((x) => x.vigente)).toEqual([false, false])
+      expect(await tx.query(`select anulado, correcao_motivo_texto from public.registros_encontro where substitui_id = $1`, [c.registro])).toEqual([
+        { anulado: true, correcao_motivo_texto: 'Era outra pessoa.' },
+      ])
+    })
+  })
+
+  it.each([
+    ['sem motivo', null, 'Era outra pessoa.', /motivo da anulação/],
+    ['sem texto', ['anulacao', 'Duplicado'], ' ', /motivo da anulação/],
+    ['com motivo de correção', ['correcao', 'Dado incorreto'], 'x', /motivo de anulação/],
+  ] as const)('rejeita anulação %s', async (_caso, chip, texto, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const m = chip ? await motivoDe(tx, chip[0], chip[1]) : null
+      await tx.como('authenticated', c.csA)
+      expect((await anular(tx, c.registro, m, texto)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+
+  it('outro cs não anula; revisor anula; registro anulado não se corrige nem se anula de novo', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const m = await motivoDe(tx, 'anulacao', 'Duplicado')
+      await tx.como('authenticated', c.csB)
+      expect((await anular(tx, c.registro, m, 'Duplicado.')).erro ?? 'sem erro').toMatch(/Só revisor ou admin/)
+      await tx.comoPostgres()
+      await tx.como('authenticated', c.revisor)
+      const { erro, linhas } = await anular(tx, c.registro, m, 'Duplicado.')
+      expect(erro).toBeNull()
+      expect((await anular(tx, linhas[0].id, m, 'De novo.')).erro ?? 'sem erro').toMatch(/anulado não pode/)
+      expect((await corrigir(tx, linhas[0].id, await veioCompleto(tx, c))).erro ?? 'sem erro').toMatch(/anulado não pode/)
+    })
+  })
+})
