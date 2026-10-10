@@ -120,6 +120,42 @@ describe('projeto travado', () => {
   })
 })
 
+describe('continuidade (6.5)', () => {
+  async function segundaSessao(tx: import('./transacao').Transacao, c: import('./cenarios').Cenario) {
+    const [s2] = await tx.query<{ id: string }>(
+      `insert into public.sessoes (turma_id, tipo, numero, data, hora_inicio, formato) values ($1, 'regular', 2, '2026-10-22', '14:00', 'online') returning id`,
+      [c.turma],
+    )
+    await tx.query(`insert into public.sessao_participantes (sessao_id, participante_id, cs_id) values ($1, $2, $3)`, [s2.id, c.pessoas[0], c.csB])
+    return s2.id
+  }
+
+  it('exige dizer se cumpriu o planejado do encontro anterior', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const s2 = await segundaSessao(tx, c)
+      const primeiro = await veioCompleto(tx, c)
+      const segundo = await veioCompleto(tx, c, { sessao_id: s2 })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, primeiro)).erro).toBeNull()
+      await tx.comoPostgres()
+      await tx.como('authenticated', c.csB) // outro CS no encontro seguinte
+      expect((await registrar(tx, segundo)).erro ?? 'sem erro').toMatch(/cumpriu o planejado/)
+      expect((await registrar(tx, { ...segundo, cumpriu_planejado_anterior: 'parcial' })).erro).toBeNull()
+    })
+  })
+
+  it('não exige quando não há planejado anterior', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const s2 = await segundaSessao(tx, c)
+      const segundo = await veioCompleto(tx, c, { sessao_id: s2 })
+      await tx.como('authenticated', c.csB)
+      expect((await registrar(tx, segundo)).erro).toBeNull()
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
