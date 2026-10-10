@@ -284,3 +284,22 @@ create policy "cs_convoca_em_extra" on public.sessao_participantes for insert to
     (select public.tem_papel('cs'))
     and exists (select 1 from public.sessoes s where s.id = sessao_id and s.tipo = 'extra')
   );
+
+-- Imutabilidade (5.4) ------------------------------------------------------------------
+-- Além da falta de GRANT de UPDATE/DELETE, um trigger barra qualquer papel, inclusive service_role e postgres.
+-- Correção e anulação são novas versões (substitui_id).
+
+create function public.bloquear_alteracao()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'Registros não se alteram nem se apagam: corrija com uma nova versão.' using errcode = 'restrict_violation';
+end;
+$$;
+
+create trigger registros_encontro_imutavel before update or delete on public.registros_encontro
+  for each row execute function public.bloquear_alteracao();
+create trigger registro_temas_imutavel before update or delete on public.registro_temas
+  for each row execute function public.bloquear_alteracao();
