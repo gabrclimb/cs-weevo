@@ -180,3 +180,68 @@ describe('anulação (nova versão)', () => {
     })
   })
 })
+
+describe('exceção do --resetar (carga da planilha)', () => {
+  /** Registro de carga com um tema, gravado como service_role; volta como postgres. */
+  async function comCarga(tx: Transacao) {
+    const c = await cenarioEncontro(tx)
+    const [veio] = await tx.query<{ id: string }>(`select id from public.estados_presenca where chave = 'veio'`)
+    const [tema] = await tx.query<{ id: string }>(`select id from public.temas where rotulo = 'Agente'`)
+    await tx.como('service_role')
+    const [r] = await tx.query<{ id: string }>(
+      `insert into public.registros_encontro (sessao_id, participante_id, presenca_id, modalidade, origem) values ($1, $2, $3, 'presencial', 'import') returning id`,
+      [c.sessao, c.pessoas[1], veio.id],
+    )
+    await tx.query(`insert into public.registro_temas (registro_id, tema_id) values ($1, $2)`, [r.id, tema.id])
+    await tx.comoPostgres()
+    return { ...c, carga: r.id }
+  }
+  const apagarCarga = (tx: Transacao, id: string) =>
+    tx.erro(`with t as (delete from public.registro_temas where registro_id = $1) delete from public.registros_encontro where id = $1`, [id])
+
+  it('service_role apaga registro de carga com carga liberada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comCarga(tx)
+      await tx.como('service_role')
+      expect(await tx.erro(`delete from public.registro_temas where registro_id = $1`, [c.carga])).toBeNull()
+      expect(await tx.erro(`delete from public.registros_encontro where id = $1`, [c.carga])).toBeNull()
+      expect(await tx.query(`select count(*)::int as n from public.registros_encontro where id = $1`, [c.carga])).toEqual([{ n: 0 }])
+    })
+  })
+
+  it('com carga_liberada = false, nem o service_role apaga', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comCarga(tx)
+      await tx.query(`update public.configuracoes set valor = 'false' where chave = 'carga_liberada'`)
+      await tx.como('service_role')
+      expect((await apagarCarga(tx, c.carga)) ?? 'sem erro').toMatch(/não se alteram nem se apagam/)
+    })
+  })
+
+  it('postgres sem JWT e authenticated não apagam carga', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comCarga(tx)
+      expect((await apagarCarga(tx, c.carga)) ?? 'sem erro').toMatch(/não se alteram nem se apagam/)
+      await tx.como('authenticated', c.admin)
+      expect((await apagarCarga(tx, c.carga)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+
+  it('registro manual nunca se apaga, nem pelo service_role com carga liberada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      await tx.como('service_role')
+      expect((await apagarCarga(tx, c.registro)) ?? 'sem erro').toMatch(/não se alteram nem se apagam/)
+    })
+  })
+
+  it('update de carga continua proibido', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comCarga(tx)
+      await tx.como('service_role')
+      expect((await tx.erro(`update public.registros_encontro set modalidade = 'online' where id = $1`, [c.carga])) ?? 'sem erro').toMatch(
+        /não se alteram nem se apagam/,
+      )
+    })
+  })
+})
