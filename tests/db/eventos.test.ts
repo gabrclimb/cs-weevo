@@ -65,3 +65,48 @@ describe('dados validados por tipo (5.3)', () => {
     })
   })
 })
+
+describe('motivo e fase por tipo', () => {
+  // Tipos que pedem motivo (6.1): [tipo, dados, chip certo, chip de outro tipo]
+  const PEDEM_MOTIVO: [string, (c: CenarioEventos) => object, [string, string], [string, string]][] = [
+    ['suporte_extra_pedido', () => ({}), ['suporte_extra', 'Repor encontro perdido'], ['falta', 'Viagem']],
+    ['suporte_transferido', (c) => ({ para_turma: c.outraTurma }), ['transferencia', 'Agenda'], ['falta', 'Viagem']],
+    ['saiu_do_suporte', () => ({}), ['saida_suporte', 'Desistiu'], ['travou', 'Tempo']],
+    ['imersao_presenca', (c) => ({ dia: c.dia, presente: false }), ['falta', 'Saúde'], ['saida_suporte', 'Desistiu']],
+  ]
+
+  it.each(PEDEM_MOTIVO)('%s exige chip do tipo certo e texto', async (tipo, dados, certo, errado) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      const base = { participante_id: c.pessoas[0], tipo, dados: dados(c) }
+      const m = await motivo(tx, ...certo)
+      const outro = await motivo(tx, ...errado)
+      await tx.como('authenticated', c.csA)
+      expect((await registrarEvento(tx, base)).erro ?? 'sem erro', 'sem chip').toMatch(/Escolha o motivo/)
+      expect((await registrarEvento(tx, { ...base, motivo_id: outro, motivo_texto: 'x' })).erro ?? 'sem erro', 'outro tipo').toMatch(/motivo do tipo/)
+      expect((await registrarEvento(tx, { ...base, motivo_id: m, motivo_texto: ' ' })).erro ?? 'sem erro', 'sem texto').toMatch(/texto do motivo/)
+      expect((await registrarEvento(tx, { ...base, motivo_id: m, motivo_texto: 'Contexto.' })).erro, 'completo').toBeNull()
+    })
+  })
+
+  it('presença na imersão com presente = true não pede motivo', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('authenticated', c.csA)
+      expect((await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'imersao_presenca', dados: { dia: c.dia, presente: true } })).erro).toBeNull()
+    })
+  })
+
+  it('fase precisa combinar com o tipo; nota exige a fase', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('authenticated', c.csA)
+      expect(
+        (await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'interacao_grupo', fase: 'fechamento', dados: { estado: 'sim' } })).erro ?? 'sem erro',
+      ).toMatch(/fase/)
+      expect((await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'nota', dados: { texto: 'Sem fase.' } })).erro ?? 'sem erro').toMatch(/fase/)
+      const { linhas } = await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'interacao_grupo', dados: { estado: 'sim' } })
+      expect(await tx.query(`select fase from public.eventos where id = $1`, [linhas[0].id])).toEqual([{ fase: 'comunidade' }])
+    })
+  })
+})
