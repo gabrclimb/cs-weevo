@@ -146,6 +146,19 @@ begin
     raise exception 'Informe a modalidade (presencial ou online).' using errcode = 'check_violation';
   end if;
 
+  -- Desvio do esperado: chip de falta (6.1) + texto. Na carga o texto pode faltar (célula sem nota).
+  if e.pede_motivo then
+    if new.motivo_id is null then
+      raise exception 'Escolha o motivo.' using errcode = 'check_violation';
+    end if;
+    if (select tipo_registro from public.motivos where id = new.motivo_id) <> 'falta' then
+      raise exception 'Escolha um motivo de falta ou remarcação.' using errcode = 'check_violation';
+    end if;
+    if new.origem = 'manual' and public.texto_vazio(new.motivo_texto) then
+      raise exception 'Escreva o texto do motivo.' using errcode = 'check_violation';
+    end if;
+  end if;
+
   if e.conta_presenca and new.origem = 'manual' then
     if public.texto_vazio(new.feito) then
       raise exception 'Informe o que foi feito no encontro.' using errcode = 'check_violation';
