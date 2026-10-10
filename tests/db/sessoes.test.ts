@@ -69,3 +69,57 @@ describe('sessões: mesmo encontro em vários horários (8.3)', () => {
     })
   })
 })
+
+describe('quem cria e altera sessões', () => {
+  async function como(tx: Transacao, papel: 'cs' | 'revisor' | 'admin') {
+    await tx.como('authenticated', await criarUsuario(tx, papel))
+  }
+
+  it.each([
+    ['cs', { regular: 'barrado', extra: 'gravou' }],
+    ['revisor', { regular: 'gravou', extra: 'gravou' }],
+    ['admin', { regular: 'gravou', extra: 'gravou' }],
+  ] as const)('%s cria sessões', async (papel, esperado) => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      await como(tx, papel)
+      const regular = await sessao(tx, t, { tipo: 'regular', numero: 1 })
+      const extra = await sessao(tx, t, { tipo: 'extra', repoe_numero: 1 })
+      const r = (x: { erro: string | null; linhas: unknown[] }) => (x.erro ? (expect(x.erro).toMatch(/permission denied|row-level security/), 'barrado') : 'gravou')
+      expect({ regular: r(regular), extra: r(extra) }).toEqual(esperado)
+    })
+  })
+
+  it.each([
+    ['cs', 0],
+    ['revisor', 1],
+  ] as const)('%s remarca a data de uma sessão (linhas alteradas: %s)', async (papel, n) => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      const { linhas } = await sessao(tx, t, { tipo: 'regular', numero: 1 })
+      await como(tx, papel)
+      const { erro, linhas: alteradas } = await tx.resultado(`update public.sessoes set data = '2026-10-20' where id = $1 returning 1`, [linhas[0].id])
+      if (erro) expect(erro).toMatch(/permission denied/)
+      expect(erro ? 0 : alteradas.length).toBe(n)
+    })
+  })
+
+  it('ninguém muda o status direto nem apaga sessão', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      const { linhas } = await sessao(tx, t, { tipo: 'regular', numero: 1 })
+      await como(tx, 'admin')
+      expect((await tx.erro(`update public.sessoes set status = 'realizada' where id = $1`, [linhas[0].id])) ?? 'sem erro').toMatch(/permission denied/)
+      expect((await tx.erro(`delete from public.sessoes`)) ?? 'sem erro').toMatch(/permission denied/)
+    })
+  })
+
+  it('membro ativo lê as sessões', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      await sessao(tx, t, { tipo: 'regular', numero: 1 })
+      await como(tx, 'cs')
+      expect(await tx.query(`select count(*)::int as n from public.sessoes`)).toEqual([{ n: 1 }])
+    })
+  })
+})
