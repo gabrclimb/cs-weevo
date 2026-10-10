@@ -92,6 +92,34 @@ describe('motivo de falta', () => {
   })
 })
 
+describe('projeto travado', () => {
+  it.each([
+    ['sem chip de travamento', null, 'Sem acesso à conta.', /motivo do travamento/],
+    ['com chip de outro tipo', ['falta', 'Viagem'], 'Sem acesso à conta.', /motivo de travamento/],
+    ['sem texto', ['travou', 'Acesso ou conta'], '', /texto do travamento/],
+  ] as const)('rejeita "travou" %s', async (_caso, chip, texto, mensagem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c, {
+        status_projeto: 'travou',
+        travou_motivo_id: chip ? await motivo(tx, chip[0], chip[1]) : null,
+        travou_texto: texto,
+      })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+
+  it('aceita "travou" com chip e texto', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c, { status_projeto: 'travou', travou_motivo_id: await motivo(tx, 'travou', 'Ferramenta'), travou_texto: 'A ferramenta não exporta.' })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro).toBeNull()
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
