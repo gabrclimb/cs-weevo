@@ -170,6 +170,18 @@ begin
       raise exception 'Informe o status do projeto.' using errcode = 'check_violation';
     end if;
   end if;
+
+  if new.status_projeto = 'travou' then
+    if new.travou_motivo_id is null then
+      raise exception 'Escolha o motivo do travamento.' using errcode = 'check_violation';
+    end if;
+    if (select tipo_registro from public.motivos where id = new.travou_motivo_id) <> 'travou' then
+      raise exception 'Escolha um motivo de travamento.' using errcode = 'check_violation';
+    end if;
+    if new.origem = 'manual' and public.texto_vazio(new.travou_texto) then
+      raise exception 'Escreva o texto do travamento.' using errcode = 'check_violation';
+    end if;
+  end if;
   return new;
 end;
 $$;
