@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { criarCliente, type ClienteDb } from './cliente'
 import { transacao, type Transacao } from './transacao'
@@ -70,6 +72,43 @@ describe('usuário novo', () => {
         `insert into auth.users (id, email, raw_user_meta_data) values (gen_random_uuid(), 'x@exemplo.invalid', '{"nome": "Pessoa Fictícia"}') returning id`,
       )
       expect(await tx.query(`select nome from public.perfis where user_id = $1`, [u.id])).toEqual([{ nome: 'Pessoa Fictícia' }])
+    })
+  })
+})
+
+/** Trecho de migração de dados da 1a, recortado do próprio arquivo, para rodar sobre um estado montado no teste. */
+function migracaoDeAdmins(): string {
+  const sql = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261010120000_fase1a_perfis.sql'), 'utf8')
+  const m = sql.match(/-- migração de dados: início\n([\s\S]*?)-- migração de dados: fim/)
+  if (!m) throw new Error('marcadores da migração de dados não encontrados')
+  return m[1]
+}
+
+describe('admin atual (weevo_admins)', () => {
+  it('vira perfil admin ativo, e is_admin() segue verdadeira', async () => {
+    await transacao(db, async (tx) => {
+      // Estado anterior à 1a: usuário em weevo_admins, sem perfil.
+      const [u] = await tx.query<{ id: string }>(`insert into auth.users (id, email) values (gen_random_uuid(), 'admin.atual@exemplo.invalid') returning id`)
+      await tx.query(`delete from public.perfis where user_id = $1`, [u.id])
+      await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [u.id])
+
+      await tx.query(migracaoDeAdmins())
+      await tx.query(migracaoDeAdmins()) // idempotente
+
+      expect(await tx.query(`select nome, papel, ativo from public.perfis where user_id = $1`, [u.id])).toEqual([
+        { nome: 'admin.atual', papel: 'admin', ativo: true },
+      ])
+      await tx.como('authenticated', u.id)
+      expect(await tx.query(`select public.is_admin() as ok`)).toEqual([{ ok: true }])
+    })
+  })
+
+  it('is_admin() passa a seguir o perfil: cs ativo não é admin', async () => {
+    await transacao(db, async (tx) => {
+      const cs = await criarUsuario(tx, 'cs')
+      await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [cs])
+      await tx.como('authenticated', cs)
+      expect(await tx.query(`select public.is_admin() as ok`)).toEqual([{ ok: false }])
     })
   })
 })
