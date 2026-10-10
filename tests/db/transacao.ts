@@ -1,6 +1,6 @@
 import type { ClienteDb } from './cliente'
 
-export type Papel = 'anon' | 'authenticated'
+export type Papel = 'anon' | 'authenticated' | 'service_role'
 
 export type Transacao = {
   query: ClienteDb['query']

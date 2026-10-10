@@ -271,6 +271,39 @@ describe('remarcação (6.4)', () => {
   })
 })
 
+describe('origem da carga (só service_role)', () => {
+  const insertImport = `insert into public.registros_encontro (sessao_id, participante_id, presenca_id, modalidade, origem)
+                        values ($1, $2, $3, 'presencial', 'import') returning registrado_por`
+
+  it('service_role grava origem import sem os campos do encontro e sem autor', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const veio = await estado(tx, 'veio')
+      await tx.como('service_role')
+      const { erro, linhas } = await tx.resultado(insertImport, [c.sessao, c.pessoas[0], veio])
+      expect(erro).toBeNull()
+      expect(linhas).toEqual([{ registrado_por: null }])
+    })
+  })
+
+  it('authenticated com origem import é rejeitado, mesmo admin', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const veio = await estado(tx, 'veio')
+      await tx.como('authenticated', c.admin)
+      expect((await tx.erro(insertImport, [c.sessao, c.pessoas[0], veio])) ?? 'sem erro').toMatch(/origem import/)
+    })
+  })
+
+  it('manual sem autor é rejeitado (service_role não grava manual)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      await tx.como('service_role')
+      expect((await registrar(tx, await veioCompleto(tx, c))).erro ?? 'sem erro').toMatch(/registros_autor|autor/)
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
