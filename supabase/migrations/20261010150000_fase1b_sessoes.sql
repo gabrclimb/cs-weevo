@@ -31,3 +31,8 @@ create trigger sessoes_registrado_por before insert on public.sessoes
   for each row execute function public.carimbar_registrado_por();
 
 alter table public.sessoes enable row level security;
+
+-- O mesmo encontro pode ter várias sessões (dias e horários diferentes, 8.3), mas não duas iguais.
+-- Extras não entram: duas remarcações para o mesmo horário podem ou não dividir a sessão.
+create unique index sessoes_regular_key on public.sessoes (turma_id, numero, data, hora_inicio) nulls not distinct
+  where tipo = 'regular';
