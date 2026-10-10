@@ -88,15 +88,44 @@ set search_path = ''
 as $$
 declare
   v_id uuid;
+  v_estado public.estados_presenca;
+  v_sessao public.sessoes;
+  v_participante uuid := (p ->> 'participante_id')::uuid;
+  v_extra uuid;
+  v_local timestamp;
 begin
+  select * into v_estado from public.estados_presenca where id = (p ->> 'presenca_id')::uuid;
+  select * into v_sessao from public.sessoes where id = (p ->> 'sessao_id')::uuid;
+
+  -- Remarcou (6.4): sessão extra que repõe o encontro, com o mesmo CS da convocação original.
+  -- A sessão guarda data e hora locais; a nova data chega com fuso.
+  if v_estado.pede_nova_data then
+    if p ->> 'nova_data' is null then
+      raise exception 'Informe a nova data da remarcação.' using errcode = 'check_violation';
+    end if;
+    v_local := (p ->> 'nova_data')::timestamptz at time zone 'America/Fortaleza';
+    insert into public.sessoes (turma_id, tipo, repoe_numero, data, hora_inicio, hora_fim, formato, link)
+    values (
+      v_sessao.turma_id, 'extra', coalesce(v_sessao.numero, v_sessao.repoe_numero), v_local::date, v_local::time,
+      case when v_sessao.hora_inicio is not null and v_sessao.hora_fim is not null
+           then v_local::time + (v_sessao.hora_fim - v_sessao.hora_inicio) end,
+      v_sessao.formato, v_sessao.link
+    )
+    returning id into v_extra;
+    insert into public.sessao_participantes (sessao_id, participante_id, cs_id)
+    select v_extra, v_participante, sp.cs_id
+    from public.sessao_participantes sp
+    where sp.sessao_id = v_sessao.id and sp.participante_id = v_participante;
+  end if;
+
   insert into public.registros_encontro (
     sessao_id, participante_id, presenca_id, modalidade, motivo_id, motivo_texto, feito, planejado,
-    cumpriu_planejado_anterior, status_projeto, travou_motivo_id, travou_texto, nova_data
+    cumpriu_planejado_anterior, status_projeto, travou_motivo_id, travou_texto, nova_data, sessao_extra_id
   ) values (
-    (p ->> 'sessao_id')::uuid, (p ->> 'participante_id')::uuid, (p ->> 'presenca_id')::uuid, p ->> 'modalidade',
+    (p ->> 'sessao_id')::uuid, v_participante, (p ->> 'presenca_id')::uuid, p ->> 'modalidade',
     (p ->> 'motivo_id')::uuid, p ->> 'motivo_texto', p ->> 'feito', p ->> 'planejado',
     p ->> 'cumpriu_planejado_anterior', p ->> 'status_projeto', (p ->> 'travou_motivo_id')::uuid, p ->> 'travou_texto',
-    (p ->> 'nova_data')::timestamptz
+    (p ->> 'nova_data')::timestamptz, v_extra
   )
   returning id into v_id;
 
@@ -148,6 +177,10 @@ begin
 
   if e.conta_presenca and new.modalidade is null then
     raise exception 'Informe a modalidade (presencial ou online).' using errcode = 'check_violation';
+  end if;
+
+  if e.pede_nova_data and new.nova_data is null and new.origem = 'manual' then
+    raise exception 'Informe a nova data da remarcação.' using errcode = 'check_violation';
   end if;
 
   -- Desvio do esperado: chip de falta (6.1) + texto. Na carga o texto pode faltar (célula sem nota).
@@ -226,3 +259,10 @@ $$;
 create constraint trigger registros_encontro_temas after insert on public.registros_encontro
   deferrable initially deferred
   for each row execute function public.conferir_temas_do_registro();
+
+-- A remarcação feita por qualquer cs convoca o participante na sessão extra criada para ele.
+create policy "cs_convoca_em_extra" on public.sessao_participantes for insert to authenticated
+  with check (
+    (select public.tem_papel('cs'))
+    and exists (select 1 from public.sessoes s where s.id = sessao_id and s.tipo = 'extra')
+  );
