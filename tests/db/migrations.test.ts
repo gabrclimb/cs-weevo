@@ -17,6 +17,8 @@ describe('migrations', () => {
       'configuracoes',
       'empresas',
       'estados_presenca',
+      'eventos',
+      'evidencias',
       'funil_etapas',
       'imersao_dias',
       'message_template_categories',

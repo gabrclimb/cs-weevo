@@ -165,6 +165,8 @@ describe('privilégios de tabela', () => {
       { tabela: 'configuracoes', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'empresas', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'estados_presenca', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'eventos', papel: 'authenticated', privilegios: 'SELECT' },
+      { tabela: 'evidencias', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'funil_etapas', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'imersao_dias', papel: 'authenticated', privilegios: 'SELECT' },
       { tabela: 'message_template_categories', papel: 'authenticated', privilegios: DML },
