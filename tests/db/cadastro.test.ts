@@ -172,3 +172,55 @@ describe('quem cadastra (D2: revisor e admin)', () => {
     })
   })
 })
+
+describe('dupla', () => {
+  type Tx = import('./transacao').Transacao
+  async function pessoas(tx: Tx, n: number, turmaNome = 'Turma Dupla') {
+    const [t] = await tx.query<{ id: string }>(
+      `insert into public.turmas (nome, tipo, modelo_suporte) values ($1, 'aberta', 'plantao') on conflict (nome) do update set nome = excluded.nome returning id`,
+      [turmaNome],
+    )
+    const ids: string[] = []
+    for (let i = 0; i < n; i++) {
+      const [p] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ($1, $2) returning id`, [`Pessoa ${turmaNome} ${i}`, t.id])
+      ids.push(p.id)
+    }
+    return ids
+  }
+  const parceiros = (tx: Tx, ids: string[]) =>
+    tx.query<{ id: string; parceiro_presenca_id: string | null }>(`select id, parceiro_presenca_id from public.participantes where id = any ($1) order by id`, [ids])
+
+  it('definir_dupla grava os dois lados; desfazer_dupla limpa os dois', async () => {
+    await transacao(db, async (tx) => {
+      const [a, b] = await pessoas(tx, 2)
+      await tx.como('authenticated', await criarUsuario(tx, 'revisor'))
+      await tx.query(`select public.definir_dupla($1, $2)`, [a, b])
+      expect(Object.fromEntries((await parceiros(tx, [a, b])).map((r) => [r.id, r.parceiro_presenca_id]))).toEqual({ [a]: b, [b]: a })
+      await tx.query(`select public.desfazer_dupla($1)`, [b])
+      expect((await parceiros(tx, [a, b])).map((r) => r.parceiro_presenca_id)).toEqual([null, null])
+    })
+  })
+
+  it.each([
+    ['a mesma pessoa', 'si', /consigo mesm/],
+    ['quem já tem dupla', 'ocupado', /já tem dupla/],
+    ['turmas de suporte diferentes', 'turma', /mesma turma de suporte/],
+  ] as const)('rejeita %s', async (_caso, situacao, mensagem) => {
+    await transacao(db, async (tx) => {
+      const [a, b, c] = await pessoas(tx, 3)
+      const [x] = await pessoas(tx, 1, 'Outra Turma')
+      await tx.como('authenticated', await criarUsuario(tx, 'revisor'))
+      if (situacao === 'ocupado') await tx.query(`select public.definir_dupla($1, $2)`, [a, b])
+      const alvo = { si: [a, a], ocupado: [c, a], turma: [a, x] }[situacao]
+      expect((await tx.erro(`select public.definir_dupla($1, $2)`, alvo)) ?? 'sem erro').toMatch(mensagem)
+    })
+  })
+
+  it('cs não define dupla', async () => {
+    await transacao(db, async (tx) => {
+      const [a, b] = await pessoas(tx, 2)
+      await tx.como('authenticated', await criarUsuario(tx, 'cs'))
+      expect((await tx.erro(`select public.definir_dupla($1, $2)`, [a, b])) ?? 'sem erro').toMatch(/apenas revisor ou admin/)
+    })
+  })
+})
