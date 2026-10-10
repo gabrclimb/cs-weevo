@@ -112,3 +112,35 @@ describe('admin atual (weevo_admins)', () => {
     })
   })
 })
+
+describe('acesso a perfis', () => {
+  it('membro ativo vê o time', async () => {
+    await transacao(db, async (tx) => {
+      const cs = await criarUsuario(tx, 'cs', { nome: 'Pessoa CS' })
+      await criarUsuario(tx, 'revisor', { nome: 'Pessoa Revisora' })
+      await tx.como('authenticated', cs)
+      const nomes = (await tx.query<{ nome: string }>(`select nome from public.perfis order by nome`)).map((r) => r.nome)
+      expect(nomes).toEqual(['Pessoa CS', 'Pessoa Revisora'])
+    })
+  })
+
+  it.each([
+    ['perfil inativo', { ativo: false }],
+    ['sem perfil', null],
+  ] as const)('%s não vê nem altera perfis', async (_caso, opcoes) => {
+    await transacao(db, async (tx) => {
+      await criarUsuario(tx, 'admin', { nome: 'Outra Pessoa' })
+      let id: string
+      if (opcoes) id = await criarUsuario(tx, 'cs', opcoes)
+      else {
+        ;[{ id }] = await tx.query<{ id: string }>(`insert into auth.users (id) values (gen_random_uuid()) returning id`)
+        await tx.query(`delete from public.perfis where user_id = $1`, [id])
+      }
+      await tx.como('authenticated', id)
+      expect(await tx.query(`select * from public.perfis`)).toEqual([])
+      const erro = await tx.erro(`update public.perfis set papel = 'admin' returning 1`)
+      if (erro) expect(erro).toMatch(/permission denied/)
+      else expect(await tx.query(`update public.perfis set papel = 'admin' returning 1`)).toEqual([])
+    })
+  })
+})
