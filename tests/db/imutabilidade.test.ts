@@ -76,3 +76,36 @@ describe('correção por nova versão', () => {
     })
   })
 })
+
+describe('quem corrige', () => {
+  it('outro cs não corrige registro alheio', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const dados = await veioCompleto(tx, c, { feito: 'Outra versão.' })
+      await tx.como('authenticated', c.csB)
+      expect((await corrigir(tx, c.registro, dados)).erro ?? 'sem erro').toMatch(/Só revisor ou admin corrigem/)
+    })
+  })
+
+  it('revisor corrige registro alheio só com motivo de correção', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comRegistro(tx)
+      const [m] = await tx.query<{ id: string }>(`select id from public.motivos where tipo_registro = 'correcao' and rotulo = 'Dado incorreto'`)
+      const [errado] = await tx.query<{ id: string }>(`select id from public.motivos where tipo_registro = 'falta' and rotulo = 'Viagem'`)
+      const dados = await veioCompleto(tx, c, { feito: 'Versão do revisor.' })
+      await tx.como('authenticated', c.revisor)
+      expect((await corrigir(tx, c.registro, dados)).erro ?? 'sem erro').toMatch(/motivo da correção/)
+      expect((await corrigir(tx, c.registro, { ...dados, correcao_motivo_id: errado.id, correcao_motivo_texto: 'x' })).erro ?? 'sem erro').toMatch(
+        /motivo de correção/,
+      )
+      expect((await corrigir(tx, c.registro, { ...dados, correcao_motivo_id: m.id, correcao_motivo_texto: '  ' })).erro ?? 'sem erro').toMatch(
+        /motivo da correção/,
+      )
+      expect((await corrigir(tx, c.registro, { ...dados, correcao_motivo_id: m.id, correcao_motivo_texto: 'Feito estava trocado com outro participante.' })).erro).toBeNull()
+      expect((await versoes(tx, c)).map((v) => [v.registrado_por, v.vigente])).toEqual([
+        [c.csA, false],
+        [c.revisor, true],
+      ])
+    })
+  })
+})
