@@ -33,3 +33,28 @@ $$;
 
 revoke execute on function public.tem_papel(text) from public, anon;
 grant execute on function public.tem_papel(text) to authenticated, service_role;
+
+-- Todo usuário novo do Auth (convite pelo painel) ganha perfil cs inativo; o admin ativa e define o papel.
+-- Falha aqui bloquearia o cadastro no Auth: só usa colunas estáveis (id, email, raw_user_meta_data).
+create function public.criar_perfil_de_usuario()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.perfis (user_id, nome)
+  values (
+    new.id,
+    coalesce(nullif(btrim(new.raw_user_meta_data ->> 'nome'), ''), nullif(split_part(new.email, '@', 1), ''), 'Sem nome')
+  )
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+revoke execute on function public.criar_perfil_de_usuario() from public, anon, authenticated;
+
+create trigger criar_perfil_de_usuario
+  after insert on auth.users
+  for each row execute function public.criar_perfil_de_usuario();
