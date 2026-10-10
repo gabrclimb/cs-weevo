@@ -285,3 +285,86 @@ describe('referências dentro de dados', () => {
     })
   })
 })
+
+describe('origem e autoria dos eventos', () => {
+  const inserir = `insert into public.eventos (participante_id, tipo, fase, dados, origem) values ($1, 'nota', 'suporte', '{"texto": "Da carga."}', $2) returning registrado_por`
+
+  it.each(['import', 'webhook'])('service_role grava origem %s sem autor', async (origem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('service_role')
+      expect(await tx.resultado(inserir, [c.pessoas[0], origem])).toEqual({ erro: null, linhas: [{ registrado_por: null }] })
+    })
+  })
+
+  it.each(['import', 'webhook'])('authenticated com origem %s é rejeitado, mesmo admin', async (origem) => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('authenticated', c.admin)
+      expect((await tx.erro(inserir, [c.pessoas[0], origem])) ?? 'sem erro').toMatch(new RegExp(`origem ${origem}`))
+    })
+  })
+
+  it('evento manual sem autor é rejeitado', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('service_role')
+      expect((await tx.erro(inserir, [c.pessoas[0], 'manual'])) ?? 'sem erro').toMatch(/eventos_autor/)
+    })
+  })
+})
+
+describe('eventos e evidências não se alteram nem se apagam', () => {
+  async function comEventoEEvidencia(tx: Transacao) {
+    const c = await cenarioEventos(tx)
+    await tx.como('authenticated', c.csA)
+    const { linhas } = await registrarEvento(tx, { participante_id: c.pessoas[0], tipo: 'evidencia', dados: { descricao: 'Print.' } })
+    await tx.query(`insert into public.evidencias (evento_id, participante_id, tipo, url) values ($1, $2, 'link', 'https://exemplo.invalid/print')`, [
+      linhas[0].id,
+      c.pessoas[0],
+    ])
+    await tx.comoPostgres()
+    return { ...c, evento: linhas[0].id }
+  }
+  const ALTERACOES = [
+    ['update do evento', `update public.eventos set dados = '{}' where id = $1`],
+    ['delete do evento', `delete from public.eventos where id = $1`],
+    ['update da evidência', `update public.evidencias set url = 'https://outro.invalid' where evento_id = $1`],
+    ['delete da evidência', `delete from public.evidencias where evento_id = $1`],
+  ] as const
+
+  it('authenticated não altera (sem GRANT)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comEventoEEvidencia(tx)
+      await tx.como('authenticated', c.admin)
+      for (const [nome, sql] of ALTERACOES) expect((await tx.erro(sql, [c.evento])) ?? 'sem erro', nome).toMatch(/permission denied/)
+    })
+  })
+
+  it('service_role também não altera (trigger)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await comEventoEEvidencia(tx)
+      await tx.como('service_role')
+      for (const [nome, sql] of ALTERACOES) expect((await tx.erro(sql, [c.evento])) ?? 'sem erro', nome).toMatch(/não se alteram nem se apagam/)
+    })
+  })
+
+  it('--resetar apaga evento de carga só com carga liberada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEventos(tx)
+      await tx.como('service_role')
+      const [e] = await tx.query<{ id: string }>(
+        `insert into public.eventos (participante_id, tipo, fase, dados, origem) values ($1, 'nota', 'suporte', '{"texto": "Da carga."}', 'import') returning id`,
+        [c.pessoas[0]],
+      )
+      await tx.comoPostgres()
+      await tx.query(`update public.configuracoes set valor = 'false' where chave = 'carga_liberada'`)
+      await tx.como('service_role')
+      expect((await tx.erro(`delete from public.eventos where id = $1`, [e.id])) ?? 'sem erro').toMatch(/não se alteram nem se apagam/)
+      await tx.comoPostgres()
+      await tx.query(`update public.configuracoes set valor = 'true' where chave = 'carga_liberada'`)
+      await tx.como('service_role')
+      expect(await tx.erro(`delete from public.eventos where id = $1`, [e.id])).toBeNull()
+    })
+  })
+})
