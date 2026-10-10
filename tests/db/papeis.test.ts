@@ -24,4 +24,32 @@ describe('tem_papel', () => {
       expect(await temPapel(tx, 'revisor')).toBe(false)
     })
   })
+
+  it.each([
+    ['revisor', { cs: true, revisor: true, admin: false }],
+    ['admin', { cs: true, revisor: true, admin: true }],
+  ] as const)('%s passa nos níveis de baixo', async (papel, esperado) => {
+    await transacao(db, async (tx) => {
+      const id = await criarUsuario(tx, papel)
+      await tx.como('authenticated', id)
+      for (const [nivel, ok] of Object.entries(esperado)) {
+        expect(await temPapel(tx, nivel), nivel).toBe(ok)
+      }
+    })
+  })
+
+  it('perfil inativo não passa em nenhum nível', async () => {
+    await transacao(db, async (tx) => {
+      const id = await criarUsuario(tx, 'admin', { ativo: false })
+      await tx.como('authenticated', id)
+      for (const nivel of ['cs', 'revisor', 'admin']) expect(await temPapel(tx, nivel), nivel).toBe(false)
+    })
+  })
+
+  it('sem login, não passa', async () => {
+    await transacao(db, async (tx) => {
+      await tx.como('authenticated')
+      expect(await temPapel(tx, 'cs')).toBe(false)
+    })
+  })
 })
