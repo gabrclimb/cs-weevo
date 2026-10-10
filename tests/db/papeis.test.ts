@@ -53,3 +53,23 @@ describe('tem_papel', () => {
     })
   })
 })
+
+describe('usuário novo', () => {
+  it('ganha perfil cs inativo, com nome do e-mail', async () => {
+    await transacao(db, async (tx) => {
+      const [u] = await tx.query<{ id: string }>(`insert into auth.users (id, email) values (gen_random_uuid(), 'fulana.teste@exemplo.invalid') returning id`)
+      expect(await tx.query(`select nome, papel, ativo from public.perfis where user_id = $1`, [u.id])).toEqual([
+        { nome: 'fulana.teste', papel: 'cs', ativo: false },
+      ])
+    })
+  })
+
+  it('usa o nome do metadado quando o convite traz', async () => {
+    await transacao(db, async (tx) => {
+      const [u] = await tx.query<{ id: string }>(
+        `insert into auth.users (id, email, raw_user_meta_data) values (gen_random_uuid(), 'x@exemplo.invalid', '{"nome": "Pessoa Fictícia"}') returning id`,
+      )
+      expect(await tx.query(`select nome from public.perfis where user_id = $1`, [u.id])).toEqual([{ nome: 'Pessoa Fictícia' }])
+    })
+  })
+})
