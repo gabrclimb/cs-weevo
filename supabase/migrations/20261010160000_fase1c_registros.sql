@@ -140,6 +140,11 @@ begin
   insert into public.registro_temas (registro_id, tema_id)
   select v_id, t::uuid from jsonb_array_elements_text(coalesce(p -> 'temas', '[]'::jsonb)) as t;
 
+  -- Opcionais do formulário (interesse, ganho, evidência, depoimento, suporte extra) viram eventos ligados ao registro.
+  -- registrar_evento vem na migration seguinte (eventos); o plpgsql resolve a chamada só na execução.
+  perform public.registrar_evento(ev || jsonb_build_object('participante_id', v_participante, 'sessao_id', v_sessao.id, 'registro_id', v_id))
+  from jsonb_array_elements(coalesce(p -> 'eventos', '[]'::jsonb)) as ev;
+
   return v_id;
 end;
 $$;
