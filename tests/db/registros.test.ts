@@ -156,6 +156,65 @@ describe('continuidade (6.5)', () => {
   })
 })
 
+describe('quem e onde se registra', () => {
+  it('rejeita registro de quem não foi convocado', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const [x] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ('Não convocado', $1) returning id`, [c.turma])
+      const dados = await veioCompleto(tx, c, { participante_id: x.id })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/foreign key/)
+    })
+  })
+
+  it('rejeita um segundo registro do mesmo par sessão-participante (o caminho é corrigir)', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c)
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro).toBeNull()
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/duplicate key/)
+    })
+  })
+
+  it('qualquer cs registra qualquer convocado (D3), e registrado_por fica com quem atendeu', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx) // a pessoa 1 está distribuída ao CS A
+      const dados = await veioCompleto(tx, c)
+      await tx.como('authenticated', c.csB)
+      const { erro, linhas } = await registrar(tx, dados)
+      expect(erro).toBeNull()
+      expect(await tx.query(`select registrado_por from public.registros_encontro where id = $1`, [linhas[0].id])).toEqual([{ registrado_por: c.csB }])
+    })
+  })
+
+  it('rejeita registro em sessão cancelada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      await tx.query(`update public.sessoes set status = 'cancelada' where id = $1`, [c.sessao])
+      const dados = await veioCompleto(tx, c)
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/sessão cancelada/)
+    })
+  })
+
+  it('convocação que já tem registro não pode ser removida, nem pelo revisor', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await veioCompleto(tx, c)
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro).toBeNull()
+      await tx.comoPostgres()
+      await tx.como('authenticated', c.revisor)
+      expect(
+        (await tx.erro(`delete from public.sessao_participantes where sessao_id = $1 and participante_id = $2`, [c.sessao, c.pessoas[0]])) ?? 'sem erro',
+      ).toMatch(/foreign key/)
+      // a convocação sem registro (pessoa 2) sai normalmente
+      expect(await tx.erro(`delete from public.sessao_participantes where sessao_id = $1 and participante_id = $2`, [c.sessao, c.pessoas[1]])).toBeNull()
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
