@@ -295,6 +295,17 @@ describe('origem da carga (só service_role)', () => {
     })
   })
 
+  it('authenticated não escapa da regra marcando a linha como anulada', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const veio = await estado(tx, 'veio')
+      await tx.como('authenticated', c.admin)
+      const sql = `insert into public.registros_encontro (sessao_id, participante_id, presenca_id, modalidade, origem, anulado)
+                   values ($1, $2, $3, 'presencial', 'import', true)`
+      expect((await tx.erro(sql, [c.sessao, c.pessoas[0], veio])) ?? 'sem erro').toMatch(/origem import/)
+    })
+  })
+
   it('manual sem autor é rejeitado (service_role não grava manual)', async () => {
     await transacao(db, async (tx) => {
       const c = await cenarioEncontro(tx)
