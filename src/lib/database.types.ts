@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      configuracoes: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          chave: string
+          valor: Json
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave: string
+          valor: Json
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave?: string
+          valor?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_atualizado_por_fkey"
+            columns: ["atualizado_por"]
+            isOneToOne: false
+            referencedRelation: "perfis"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      estados_presenca: {
+        Row: {
+          ativo: boolean
+          chave: string
+          conta_presenca: boolean
+          created_at: string
+          id: string
+          ordem: number
+          pede_motivo: boolean
+          pede_nova_data: boolean
+          rotulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          chave: string
+          conta_presenca: boolean
+          created_at?: string
+          id?: string
+          ordem: number
+          pede_motivo: boolean
+          pede_nova_data: boolean
+          rotulo: string
+        }
+        Update: {
+          ativo?: boolean
+          chave?: string
+          conta_presenca?: boolean
+          created_at?: string
+          id?: string
+          ordem?: number
+          pede_motivo?: boolean
+          pede_nova_data?: boolean
+          rotulo?: string
+        }
+        Relationships: []
+      }
+      funil_etapas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          final: string | null
+          id: string
+          ordem: number
+          pede_motivo: boolean
+          rotulo: string
+          tipo_motivo: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          final?: string | null
+          id?: string
+          ordem: number
+          pede_motivo?: boolean
+          rotulo: string
+          tipo_motivo?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          final?: string | null
+          id?: string
+          ordem?: number
+          pede_motivo?: boolean
+          rotulo?: string
+          tipo_motivo?: string | null
+        }
+        Relationships: []
+      }
       message_template_categories: {
         Row: {
           created_at: string
@@ -72,6 +170,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      motivos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          ordem: number
+          rotulo: string
+          tipo_registro: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ordem: number
+          rotulo: string
+          tipo_registro: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ordem?: number
+          rotulo?: string
+          tipo_registro?: string
+        }
+        Relationships: []
+      }
+      perfis: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          nome: string
+          papel: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          nome: string
+          papel?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          nome?: string
+          papel?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      temas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          ordem: number
+          rotulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ordem: number
+          rotulo: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          ordem?: number
+          rotulo?: string
+        }
+        Relationships: []
       }
       weevo_admins: {
         Row: {
@@ -440,6 +616,7 @@ export type Database = {
     }
     Functions: {
       is_admin: { Args: never; Returns: boolean }
+      tem_papel: { Args: { minimo: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
