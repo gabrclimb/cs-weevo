@@ -36,3 +36,15 @@ alter table public.sessoes enable row level security;
 -- Extras não entram: duas remarcações para o mesmo horário podem ou não dividir a sessão.
 create unique index sessoes_regular_key on public.sessoes (turma_id, numero, data, hora_inicio) nulls not distinct
   where tipo = 'regular';
+
+-- Acesso: membro lê; cs cria só extra (remarcação, suporte extra); revisor e admin criam e remarcam.
+-- status muda por RPC (fechar/cancelar, fase 1c). Ninguém apaga: cancelar.
+grant select on public.sessoes to authenticated;
+grant insert (turma_id, tipo, numero, repoe_numero, data, hora_inicio, hora_fim, formato, link) on public.sessoes to authenticated;
+grant update (data, hora_inicio, hora_fim, formato, link) on public.sessoes to authenticated;
+
+create policy "membros_leem" on public.sessoes for select to authenticated using ((select public.tem_papel('cs')));
+create policy "cria_conforme_papel" on public.sessoes for insert to authenticated
+  with check ((select public.tem_papel('revisor')) or (tipo = 'extra' and (select public.tem_papel('cs'))));
+create policy "revisor_altera" on public.sessoes for update to authenticated
+  using ((select public.tem_papel('revisor'))) with check ((select public.tem_papel('revisor')));
