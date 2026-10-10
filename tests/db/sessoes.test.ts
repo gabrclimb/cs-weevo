@@ -42,3 +42,30 @@ describe('sessões: regular x extra', () => {
     })
   })
 })
+
+describe('sessões: mesmo encontro em vários horários (8.3)', () => {
+  it('aceita o mesmo número em dias ou horários diferentes', async () => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      for (const c of [
+        { data: '2026-09-29', hora_inicio: '14:00' },
+        { data: '2026-09-30', hora_inicio: '14:00' },
+        { data: '2026-09-30', hora_inicio: '16:00' },
+      ]) {
+        expect((await sessao(tx, t, { tipo: 'regular', numero: 1, ...c })).erro).toBeNull()
+      }
+    })
+  })
+
+  it.each([
+    ['com horário', { hora_inicio: '14:00' }],
+    ['sem horário', {}],
+  ])('rejeita a duplicata exata (%s)', async (_caso, extra) => {
+    await transacao(db, async (tx) => {
+      const t = await turma(tx)
+      const campos = { tipo: 'regular', numero: 1, data: '2026-09-29', ...extra }
+      expect((await sessao(tx, t, campos)).erro).toBeNull()
+      expect((await sessao(tx, t, campos)).erro ?? 'sem erro').toMatch(/duplicate key/)
+    })
+  })
+})
