@@ -215,6 +215,62 @@ describe('quem e onde se registra', () => {
   })
 })
 
+describe('remarcação (6.4)', () => {
+  type Tx = import('./transacao').Transacao
+  async function remarcou(tx: Tx, c: import('./cenarios').Cenario, extra: Record<string, unknown> = {}) {
+    return {
+      sessao_id: c.sessao,
+      participante_id: c.pessoas[0],
+      presenca_id: await estado(tx, 'remarcou'),
+      motivo_id: await motivo(tx, 'falta', 'Compromisso de trabalho'),
+      motivo_texto: 'Reunião com cliente.',
+      nova_data: '2026-10-18T17:00:00-03:00',
+      ...extra,
+    }
+  }
+
+  it('exige a nova data', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await remarcou(tx, c, { nova_data: null })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/nova data/)
+    })
+  })
+
+  it('cria a sessão extra que repõe o encontro e convoca com o mesmo CS', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx) // pessoa 1 distribuída ao CS A; quem registra é o CS B
+      const dados = await remarcou(tx, c)
+      await tx.como('authenticated', c.csB)
+      const { erro, linhas } = await registrar(tx, dados)
+      expect(erro).toBeNull()
+      const [r] = await tx.query<{ sessao_extra_id: string }>(`select sessao_extra_id from public.registros_encontro where id = $1`, [linhas[0].id])
+      expect(
+        await tx.query(
+          `select tipo, numero, repoe_numero, data::text, hora_inicio::text, hora_fim::text, formato, status from public.sessoes where id = $1`,
+          [r.sessao_extra_id],
+        ),
+      ).toEqual([
+        { tipo: 'extra', numero: null, repoe_numero: 1, data: '2026-10-18', hora_inicio: '17:00:00', hora_fim: '19:00:00', formato: 'online', status: 'agendada' },
+      ])
+      expect(await tx.query(`select participante_id, cs_id from public.sessao_participantes where sessao_id = $1`, [r.sessao_extra_id])).toEqual([
+        { participante_id: c.pessoas[0], cs_id: c.csA },
+      ])
+    })
+  })
+
+  it('é tudo ou nada: se o registro falha, a sessão extra não fica', async () => {
+    await transacao(db, async (tx) => {
+      const c = await cenarioEncontro(tx)
+      const dados = await remarcou(tx, c, { motivo_texto: '' })
+      await tx.como('authenticated', c.csA)
+      expect((await registrar(tx, dados)).erro ?? 'sem erro').toMatch(/texto do motivo/)
+      expect(await tx.query(`select count(*)::int as n from public.sessoes where tipo = 'extra'`)).toEqual([{ n: 0 }])
+    })
+  })
+})
+
 describe('insert direto, sem a RPC', () => {
   it('"Veio" sem temas é barrado no fim da transação', async () => {
     await transacao(db, async (tx) => {
