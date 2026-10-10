@@ -306,11 +306,15 @@ describe('origem da carga (só service_role)', () => {
     })
   })
 
+  // A carga grava direto na tabela (não usa a RPC, que é do front): manual sem autor bate na constraint.
   it('manual sem autor é rejeitado (service_role não grava manual)', async () => {
     await transacao(db, async (tx) => {
       const c = await cenarioEncontro(tx)
+      const veio = await estado(tx, 'veio')
       await tx.como('service_role')
-      expect((await registrar(tx, await veioCompleto(tx, c))).erro ?? 'sem erro').toMatch(/registros_autor|autor/)
+      const sql = `insert into public.registros_encontro (sessao_id, participante_id, presenca_id, modalidade, feito, planejado, status_projeto)
+                   values ($1, $2, $3, 'online', 'Feito', 'Planejado', 'rodando')`
+      expect((await tx.erro(sql, [c.sessao, c.pessoas[0], veio])) ?? 'sem erro').toMatch(/registros_autor/)
     })
   })
 })
