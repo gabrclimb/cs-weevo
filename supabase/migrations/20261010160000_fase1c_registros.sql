@@ -144,6 +144,20 @@ $$;
 
 grant execute on function public.registrar_encontro(jsonb) to authenticated;
 
+-- Origem: import (carga da planilha) e webhook (CRM) só pelo service_role ou conexão direta ao banco.
+-- Olha o papel do JWT e o da conexão, para valer também dentro de funções SECURITY DEFINER.
+create function public.origem_confiavel()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce((select auth.jwt()) ->> 'role', '') not in ('authenticated', 'anon')
+     and current_user not in ('authenticated', 'anon');
+$$;
+
+grant execute on function public.origem_confiavel() to authenticated, service_role;
+
 -- Validação ----------------------------------------------------------------------
 -- Dirigida pelos flags de estados_presenca, então segue valendo quando o admin cria estados.
 -- Vale para manual; a carga (origem import) tem as exceções da seção 8.5. Anulação não repete os campos.
@@ -166,6 +180,10 @@ as $$
 declare
   e public.estados_presenca;
 begin
+  if new.origem <> 'manual' and not public.origem_confiavel() then
+    raise exception 'Registro com origem % só pode ser gravado pela carga (service_role).', new.origem using errcode = 'insufficient_privilege';
+  end if;
+
   if new.anulado then
     return new;
   end if;
