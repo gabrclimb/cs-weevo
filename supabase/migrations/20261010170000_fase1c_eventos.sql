@@ -319,3 +319,49 @@ end;
 $$;
 
 grant execute on function public.corrigir_evento(uuid, jsonb), public.anular_evento(uuid, uuid, text) to authenticated;
+
+-- Estado derivado (princípio 3): situacao, turma_suporte_id e projeto saem do último evento vigente de cada tipo.
+-- Correção e anulação também são inserts do mesmo tipo, então desfazem o efeito.
+-- SECURITY DEFINER porque essas colunas não têm GRANT para ninguém.
+create function public.eventos_atualizar_participante()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  pid uuid := new.participante_id;
+begin
+  update public.participantes p set
+    situacao = coalesce((
+      select case e.tipo when 'saiu_do_suporte' then 'fora_do_suporte' else 'ativo' end
+      from public.eventos e
+      where e.participante_id = pid and e.tipo in ('saiu_do_suporte', 'retornou_ao_suporte')
+        and not e.anulado and not exists (select 1 from public.eventos x where x.substitui_id = e.id)
+      order by e.ocorrido_em desc, e.registrado_em desc
+      limit 1
+    ), 'ativo'),
+    turma_suporte_id = coalesce((
+      select (e.dados ->> 'para_turma')::uuid
+      from public.eventos e
+      where e.participante_id = pid and e.tipo = 'suporte_transferido'
+        and not e.anulado and not exists (select 1 from public.eventos x where x.substitui_id = e.id)
+      order by e.ocorrido_em desc, e.registrado_em desc
+      limit 1
+    ), p.turma_imersao_id),
+    projeto = (
+      select e.dados ->> 'projeto'
+      from public.eventos e
+      where e.participante_id = pid and e.tipo = 'projeto_definido'
+        and not e.anulado and not exists (select 1 from public.eventos x where x.substitui_id = e.id)
+      order by e.ocorrido_em desc, e.registrado_em desc
+      limit 1
+    )
+  where p.id = pid;
+  return null;
+end;
+$$;
+
+create trigger eventos_estado_participante after insert on public.eventos
+  for each row when (new.tipo in ('saiu_do_suporte', 'retornou_ao_suporte', 'suporte_transferido', 'projeto_definido'))
+  execute function public.eventos_atualizar_participante();
