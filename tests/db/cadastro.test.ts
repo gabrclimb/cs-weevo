@@ -107,3 +107,68 @@ describe('turma de suporte', () => {
     })
   })
 })
+
+describe('quem cadastra (D2: revisor e admin)', () => {
+  type Tx = import('./transacao').Transacao
+  /** Prepara, como postgres, uma turma e um participante para os testes de update. */
+  async function base(tx: Tx) {
+    const [t] = await tx.query<{ id: string }>(`insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma Base', 'aberta', 'plantao') returning id`)
+    const [p] = await tx.query<{ id: string }>(`insert into public.participantes (nome, turma_imersao_id) values ('Pessoa Base', $1) returning id`, [t.id])
+    return { turma: t.id, participante: p.id }
+  }
+  const ESCRITAS = (b: { turma: string; participante: string }): [string, string, unknown[]][] => [
+    ['empresas', `insert into public.empresas (nome) values ('Empresa Nova') returning 1`, []],
+    ['turmas', `insert into public.turmas (nome, tipo, modelo_suporte) values ('Turma Nova', 'aberta', 'plantao') returning 1`, []],
+    ['turmas (update)', `update public.turmas set link_grupo = 'https://exemplo.invalid' where id = $1 returning 1`, [b.turma]],
+    ['imersao_dias', `insert into public.imersao_dias (turma_id, data, ordem) values ($1, '2026-10-01', 1) returning 1`, [b.turma]],
+    ['participantes', `insert into public.participantes (nome, turma_imersao_id) values ('Pessoa Nova', $1) returning 1`, [b.turma]],
+    ['participantes (update)', `update public.participantes set apelido = 'Apelido' where id = $1 returning 1`, [b.participante]],
+  ]
+
+  async function tentar(tx: Tx, sql: string, params: unknown[]) {
+    const { erro, linhas } = await tx.resultado(sql, params)
+    if (erro) {
+      expect(erro).toMatch(/permission denied|row-level security/)
+      return 'barrado'
+    }
+    return linhas.length ? 'gravou' : 'barrado'
+  }
+
+  it.each([
+    ['cs', 'barrado'],
+    ['revisor', 'gravou'],
+    ['admin', 'gravou'],
+  ] as const)('%s → %s', async (papel, esperado) => {
+    await transacao(db, async (tx) => {
+      const b = await base(tx)
+      const id = await criarUsuario(tx, papel)
+      await tx.como('authenticated', id)
+      for (const [nome, sql, params] of ESCRITAS(b)) expect(await tentar(tx, sql, params), nome).toBe(esperado)
+    })
+  })
+
+  it('todo membro ativo lê o cadastro', async () => {
+    await transacao(db, async (tx) => {
+      await base(tx)
+      await tx.query(`insert into public.empresas (nome) values ('Empresa Lida')`)
+      await tx.como('authenticated', await criarUsuario(tx, 'cs'))
+      const [r] = await tx.query<Record<string, number>>(
+        `select (select count(*) from public.empresas)::int e, (select count(*) from public.turmas)::int t, (select count(*) from public.participantes)::int p`,
+      )
+      expect(r).toEqual({ e: 1, t: 1, p: 1 })
+    })
+  })
+
+  it('quem alterou o participante fica em atualizado_por', async () => {
+    await transacao(db, async (tx) => {
+      const b = await base(tx)
+      const revisor = await criarUsuario(tx, 'revisor')
+      await tx.como('authenticated', revisor)
+      const [p] = await tx.query<{ atualizado_por: string }>(
+        `update public.participantes set apelido = 'Novo' where id = $1 returning atualizado_por`,
+        [b.participante],
+      )
+      expect(p.atualizado_por).toBe(revisor)
+    })
+  })
+})
