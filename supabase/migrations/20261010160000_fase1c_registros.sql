@@ -351,3 +351,29 @@ end;
 $$;
 
 grant execute on function public.corrigir_registro_encontro(uuid, jsonb) to authenticated;
+
+-- Anulação: nova versão marcada como anulada; o par fica sem registro vigente. Motivo e autoria: trigger de validação.
+create function public.anular_registro_encontro(p_registro uuid, p_motivo_id uuid, p_motivo_texto text)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_alvo public.registros_encontro;
+  v_id uuid;
+begin
+  select * into v_alvo from public.registros_encontro where id = p_registro;
+  if v_alvo.id is null then
+    raise exception 'Registro não encontrado.' using errcode = 'no_data_found';
+  end if;
+  insert into public.registros_encontro (
+    sessao_id, participante_id, presenca_id, modalidade, substitui_id, anulado, correcao_motivo_id, correcao_motivo_texto
+  ) values (
+    v_alvo.sessao_id, v_alvo.participante_id, v_alvo.presenca_id, v_alvo.modalidade, v_alvo.id, true, p_motivo_id, p_motivo_texto
+  )
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.anular_registro_encontro(uuid, uuid, text) to authenticated;
