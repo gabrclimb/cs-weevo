@@ -57,7 +57,7 @@ set search_path = ''
 as $$
 begin
   new.registrado_por := (select auth.uid());
-  new.registrado_em := now();
+  new.registrado_em := clock_timestamp(); -- now() é fixo na transação; a ordem das versões precisa do instante real
   return new;
 end;
 $$;
@@ -120,12 +120,14 @@ begin
 
   insert into public.registros_encontro (
     sessao_id, participante_id, presenca_id, modalidade, motivo_id, motivo_texto, feito, planejado,
-    cumpriu_planejado_anterior, status_projeto, travou_motivo_id, travou_texto, nova_data, sessao_extra_id
+    cumpriu_planejado_anterior, status_projeto, travou_motivo_id, travou_texto, nova_data, sessao_extra_id,
+    substitui_id, correcao_motivo_id, correcao_motivo_texto
   ) values (
     (p ->> 'sessao_id')::uuid, v_participante, (p ->> 'presenca_id')::uuid, p ->> 'modalidade',
     (p ->> 'motivo_id')::uuid, p ->> 'motivo_texto', p ->> 'feito', p ->> 'planejado',
     p ->> 'cumpriu_planejado_anterior', p ->> 'status_projeto', (p ->> 'travou_motivo_id')::uuid, p ->> 'travou_texto',
-    (p ->> 'nova_data')::timestamptz, v_extra
+    (p ->> 'nova_data')::timestamptz, v_extra,
+    (p ->> 'substitui_id')::uuid, (p ->> 'correcao_motivo_id')::uuid, p ->> 'correcao_motivo_texto'
   )
   returning id into v_id;
 
@@ -303,3 +305,24 @@ create trigger registros_encontro_imutavel before update or delete on public.reg
   for each row execute function public.bloquear_alteracao();
 create trigger registro_temas_imutavel before update or delete on public.registro_temas
   for each row execute function public.bloquear_alteracao();
+
+-- Correção: nova versão do mesmo par sessão-participante, com as mesmas validações do registro.
+create function public.corrigir_registro_encontro(p_substitui uuid, p jsonb)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_alvo public.registros_encontro;
+begin
+  select * into v_alvo from public.registros_encontro where id = p_substitui;
+  if v_alvo.id is null then
+    raise exception 'Registro não encontrado.' using errcode = 'no_data_found';
+  end if;
+  return public.registrar_encontro(
+    p || jsonb_build_object('substitui_id', p_substitui, 'sessao_id', v_alvo.sessao_id, 'participante_id', v_alvo.participante_id)
+  );
+end;
+$$;
+
+grant execute on function public.corrigir_registro_encontro(uuid, jsonb) to authenticated;
