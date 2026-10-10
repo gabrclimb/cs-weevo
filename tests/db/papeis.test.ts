@@ -144,3 +144,58 @@ describe('acesso a perfis', () => {
     })
   })
 })
+
+describe('alteração de perfis', () => {
+  async function papelDe(tx: Transacao, id: string) {
+    const [r] = await tx.query<{ papel: string; ativo: boolean }>(`select papel, ativo from public.perfis where user_id = $1`, [id])
+    return r
+  }
+
+  it.each(['cs', 'revisor'] as const)('%s não se promove nem altera outros', async (papel) => {
+    await transacao(db, async (tx) => {
+      const eu = await criarUsuario(tx, papel)
+      const outro = await criarUsuario(tx, 'cs')
+      await tx.como('authenticated', eu)
+      expect(await tx.query(`update public.perfis set papel = 'admin' where user_id = $1 returning 1`, [eu])).toEqual([])
+      expect(await tx.query(`update public.perfis set ativo = false where user_id = $1 returning 1`, [outro])).toEqual([])
+      await tx.query('reset role')
+      expect(await papelDe(tx, eu)).toEqual({ papel, ativo: true })
+      expect(await papelDe(tx, outro)).toEqual({ papel: 'cs', ativo: true })
+    })
+  })
+
+  it('admin muda papel e ativo de outro', async () => {
+    await transacao(db, async (tx) => {
+      const admin = await criarUsuario(tx, 'admin')
+      const outro = await criarUsuario(tx, 'cs', { ativo: false })
+      await tx.como('authenticated', admin)
+      expect(await tx.query(`update public.perfis set papel = 'revisor', ativo = true where user_id = $1 returning 1`, [outro])).toHaveLength(1)
+      expect((await tx.erro(`update public.perfis set user_id = gen_random_uuid() where user_id = $1`, [outro])) ?? 'sem erro').toMatch(
+        /permission denied/,
+      )
+      await tx.query('reset role')
+      expect(await papelDe(tx, outro)).toEqual({ papel: 'revisor', ativo: true })
+    })
+  })
+
+  it.each([
+    ['rebaixar', `update public.perfis set papel = 'revisor' where user_id = $1`],
+    ['desativar', `update public.perfis set ativo = false where user_id = $1`],
+  ])('não deixa %s o último admin ativo', async (_acao, sql) => {
+    await transacao(db, async (tx) => {
+      await tx.query(`update public.perfis set ativo = false where papel = 'admin'`)
+      const admin = await criarUsuario(tx, 'admin')
+      await tx.como('authenticated', admin)
+      expect((await tx.erro(sql, [admin])) ?? 'sem erro').toMatch(/último admin/)
+    })
+  })
+
+  it('com outro admin ativo, um admin pode deixar de ser admin', async () => {
+    await transacao(db, async (tx) => {
+      const a = await criarUsuario(tx, 'admin')
+      await criarUsuario(tx, 'admin')
+      await tx.como('authenticated', a)
+      expect(await tx.erro(`update public.perfis set papel = 'revisor' where user_id = $1`, [a])).toBeNull()
+    })
+  })
+})
