@@ -44,6 +44,45 @@ describe('anon', () => {
   })
 })
 
+const ADMIN = '00000000-0000-4000-8000-0000000000a1'
+
+describe('admin (regressão)', () => {
+  it.each(TABELAS_CS)('lê %s', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await tx.query(`insert into auth.users (id) values ($1)`, [ADMIN])
+      await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+      await tx.como('authenticated', ADMIN)
+      expect(await tx.erro(`select * from public.${tabela}`)).toBeNull()
+    })
+  })
+
+  it('grava turma e participante, e o evento recalcula o último contato pelo trigger', async () => {
+    await transacao(db, async (tx) => {
+      await tx.query(`insert into auth.users (id) values ($1)`, [ADMIN])
+      await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+      await tx.como('authenticated', ADMIN)
+
+      const [turma] = await tx.query<{ id: string }>(`insert into public.weevo_turmas (nome) values ('Turma Teste') returning id`)
+      const [p] = await tx.query<{ id: string }>(
+        `insert into public.weevo_participantes (nome, turma_id) values ('Pessoa Fictícia', $1) returning id`,
+        [turma.id],
+      )
+      await tx.query(
+        `insert into public.weevo_eventos (participante_id, tipo, ocorrido_em) values ($1, 'mensagem_enviada', '2026-10-01T12:00:00Z')`,
+        [p.id],
+      )
+      const [depois] = await tx.query<{ ultimo_contato_em: unknown }>(
+        `select ultimo_contato_em from public.weevo_participantes where id = $1`,
+        [p.id],
+      )
+      expect(new Date(depois.ultimo_contato_em as string).toISOString()).toBe('2026-10-01T12:00:00.000Z')
+
+      expect(await tx.erro(`update public.weevo_turmas set link_grupo = 'https://exemplo.invalid' where id = $1`, [turma.id])).toBeNull()
+      expect(await tx.erro(`delete from public.weevo_participantes where id = $1`, [p.id])).toBeNull()
+    })
+  })
+})
+
 describe('LP pública (regressão)', () => {
   it('anon lê weevo_depoimentos', async () => {
     await transacao(db, async (tx) => {
