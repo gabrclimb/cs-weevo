@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { criarCliente, type ClienteDb } from './cliente'
-import { transacao } from './transacao'
+import { transacao, type Transacao } from './transacao'
 
 /** Tabelas do CS: nenhuma delas é da LP pública. */
 const TABELAS_CS = [
@@ -79,6 +79,57 @@ describe('admin (regressão)', () => {
 
       expect(await tx.erro(`update public.weevo_turmas set link_grupo = 'https://exemplo.invalid' where id = $1`, [turma.id])).toBeNull()
       expect(await tx.erro(`delete from public.weevo_participantes where id = $1`, [p.id])).toBeNull()
+    })
+  })
+})
+
+const SEM_ACESSO = '00000000-0000-4000-8000-0000000000b1'
+
+/** Uma linha em cada tabela do CS, criada como postgres, para provar que o RLS esconde o que existe. */
+async function semearCs(tx: Transacao) {
+  await tx.query(`insert into auth.users (id) values ($1), ($2)`, [ADMIN, SEM_ACESSO])
+  await tx.query(`insert into public.weevo_admins (user_id) values ($1)`, [ADMIN])
+  const [t] = await tx.query<{ id: string }>(`insert into public.weevo_turmas (nome) values ('Turma Teste') returning id`)
+  const [p] = await tx.query<{ id: string }>(
+    `insert into public.weevo_participantes (nome, turma_id) values ('Pessoa Fictícia', $1) returning id`,
+    [t.id],
+  )
+  await tx.query(`insert into public.weevo_plantoes (turma_id, numero) values ($1, 1)`, [t.id])
+  await tx.query(`insert into public.weevo_eventos (participante_id, tipo) values ($1, 'nota')`, [p.id])
+  await tx.query(`insert into public.weevo_tarefas (titulo, participante_id) values ('Tarefa teste', $1)`, [p.id])
+  const [c] = await tx.query<{ id: string }>(`insert into public.message_template_categories (nome) values ('Categoria teste') returning id`)
+  await tx.query(`insert into public.message_templates (category_id, titulo, conteudo) values ($1, 'Modelo', 'Olá')`, [c.id])
+}
+
+describe('authenticated sem linha em weevo_admins (regressão)', () => {
+  it.each(TABELAS_CS)('não vê nada em %s', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await semearCs(tx)
+      await tx.como('authenticated', SEM_ACESSO)
+      expect(await tx.query(`select * from public.${tabela}`)).toEqual([])
+    })
+  })
+
+  it.each(TABELAS_CS.filter((t) => t !== 'weevo_admins'))('não grava em %s', async (tabela) => {
+    await transacao(db, async (tx) => {
+      await semearCs(tx)
+      await tx.como('authenticated', SEM_ACESSO)
+      expect((await tx.erro(`insert into public.${tabela} default values`)) ?? 'sem erro').toMatch(
+        /row-level security|permission denied/,
+      )
+      expect(await tx.query(`update public.${tabela} set created_at = now() returning 1`)).toEqual([])
+      expect(await tx.query(`delete from public.${tabela} returning 1`)).toEqual([])
+    })
+  })
+
+  it('não se promove a admin', async () => {
+    await transacao(db, async (tx) => {
+      await semearCs(tx)
+      await tx.como('authenticated', SEM_ACESSO)
+      expect((await tx.erro(`insert into public.weevo_admins (user_id) values ($1)`, [SEM_ACESSO])) ?? 'sem erro').toMatch(
+        /row-level security|permission denied/,
+      )
+      expect(await tx.query(`select public.is_admin() as admin`)).toEqual([{ admin: false }])
     })
   })
 })
