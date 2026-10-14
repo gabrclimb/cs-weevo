@@ -158,6 +158,17 @@ function PlantaoPage() {
               Desmarque quem não precisa de contato. Nada é criado até você confirmar.
             </p>
           </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
+            <input
+              type="checkbox"
+              checked={selecionados.size === sugeridos.length}
+              ref={(el) => {
+                if (el) el.indeterminate = selecionados.size > 0 && selecionados.size < sugeridos.length
+              }}
+              onChange={(e) => setSelecionados(new Set(e.target.checked ? sugeridos.map((p) => p.id) : []))}
+            />
+            Marcar todos
+          </label>
           <ul className="grid gap-1 sm:grid-cols-2">
             {sugeridos.map((p) => (
               <li key={p.id}>
