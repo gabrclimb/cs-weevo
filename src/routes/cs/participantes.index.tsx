@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ChevronDown, ChevronRight, FileUp, Handshake, ListChecks, Pencil, Plus, Search, X } from 'lucide-react'
 import { Button, Input, MenuAcoes, Select } from '@/components/ui'
 import { podeRepassar, useRepassar } from '@/features/pontuacao/repassar'
 import { Th } from '@/components/dica'
+import { CaixaSelecao } from '@/components/caixa-selecao'
 import { BotaoFiltros, CampoFiltro } from '@/components/filtros'
 import { useDicas } from '@/lib/dicas'
 import { EdicaoMassaDialog } from '@/features/participantes/edicao-massa-dialog'
@@ -469,33 +470,5 @@ function ParticipantesPage() {
         onConcluido={() => setSelecionados(new Set())}
       />
     </div>
-  )
-}
-
-/** Checkbox com estado "parcial" (alguns da página marcados). */
-function CaixaSelecao({
-  checked,
-  indeterminate = false,
-  onChange,
-  'aria-label': ariaLabel,
-}: {
-  checked: boolean
-  indeterminate?: boolean
-  onChange: (marcado: boolean) => void
-  'aria-label': string
-}) {
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = indeterminate
-  }, [indeterminate])
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      aria-label={ariaLabel}
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-      className="size-4 cursor-pointer accent-primary"
-    />
   )
 }

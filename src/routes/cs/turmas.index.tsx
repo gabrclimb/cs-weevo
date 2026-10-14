@@ -12,6 +12,7 @@ import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/comp
 import { useEngajamento } from '@/features/engajamento'
 import { Dica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
+import { ROTULO_TIPO_TURMA } from '@/features/turmas/constantes'
 
 const AGRUPAMENTOS_TURMA = {
   situacao: 'Situação',
@@ -74,8 +75,8 @@ function TurmasPage() {
     agrupamento === 'tipo'
       ? {
           colunas: [
-            { chave: 'aberta', titulo: 'Aberta', dica: DICA_TIPO_TURMA.aberta },
-            { chave: 'in_company', titulo: 'In company', dica: DICA_TIPO_TURMA.in_company },
+            { chave: 'aberta', titulo: ROTULO_TIPO_TURMA.aberta, dica: DICA_TIPO_TURMA.aberta },
+            { chave: 'in_company', titulo: ROTULO_TIPO_TURMA.in_company, dica: DICA_TIPO_TURMA.in_company },
           ],
           colunaDe: (t) => t.tipo,
           mover: (t, c) => atualizar.mutate({ id: t.id, mudancas: { tipo: c as TurmaRow['tipo'] } }),
@@ -247,7 +248,7 @@ function TurmasPage() {
 function TipoBadge({ tipo }: { tipo: TurmaRow['tipo'] }) {
   return (
     <Dica texto={DICA_TIPO_TURMA[tipo]}>
-      <Badge className="bg-muted text-muted-foreground">{tipo === 'aberta' ? 'Aberta' : 'In company'}</Badge>
+      <Badge className="bg-muted text-muted-foreground">{ROTULO_TIPO_TURMA[tipo]}</Badge>
     </Dica>
   )
 }

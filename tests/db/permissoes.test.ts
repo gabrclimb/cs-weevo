@@ -7,6 +7,7 @@ const TABELAS_CS = [
   'weevo_admins',
   'weevo_turmas',
   'weevo_plantoes',
+  'weevo_marcos',
   'weevo_participantes',
   'weevo_eventos',
   'weevo_tarefas',
@@ -107,6 +108,7 @@ async function semearCs(tx: Transacao) {
     [t.id],
   )
   await tx.query(`insert into public.weevo_plantoes (turma_id, numero) values ($1, 1)`, [t.id])
+  await tx.query(`insert into public.weevo_marcos (turma_id, titulo) values ($1, 'Encerramento')`, [t.id])
   await tx.query(`insert into public.weevo_eventos (participante_id, tipo) values ($1, 'nota')`, [p.id])
   await tx.query(`insert into public.weevo_tarefas (titulo, participante_id) values ('Tarefa teste', $1)`, [p.id])
   const [c] = await tx.query<{ id: string }>(`insert into public.message_template_categories (nome) values ('Categoria teste') returning id`)
@@ -180,6 +182,7 @@ describe('privilégios de tabela', () => {
       { tabela: 'weevo_depoimentos', papel: 'anon', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'authenticated', privilegios: 'SELECT,UPDATE' },
       { tabela: 'weevo_eventos', papel: 'authenticated', privilegios: 'DELETE,INSERT,SELECT' },
+      { tabela: 'weevo_marcos', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_participantes', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_plantoes', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_tarefas', papel: 'authenticated', privilegios: DML },

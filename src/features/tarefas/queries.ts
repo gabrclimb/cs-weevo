@@ -73,6 +73,23 @@ export function useExcluirTarefa() {
   })
 }
 
+/** Exclusão em massa. Subtarefas de uma tarefa excluída ficam sem tarefa-mãe; os eventos continuam. */
+export function useExcluirTarefas() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('weevo_tarefas').delete().in('id', ids)
+      if (error) throw error
+      return ids.length
+    },
+    onSuccess: (n) => {
+      toast.success(`${n} tarefa(s) excluída(s).`)
+      qc.invalidateQueries({ queryKey: chaves.tarefas })
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  })
+}
+
 export type AcaoTarefa =
   | { tipo: 'status'; status: TarefaRow['status']; ordem?: number }
   | { tipo: 'respondeu'; categoria: EventoCategoria | null; nota: string | null; marcarImplementou: boolean }

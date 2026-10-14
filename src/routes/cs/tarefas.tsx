@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FileUp, Plus, Search } from 'lucide-react'
-import { Button, Input, Select } from '@/components/ui'
+import { FileUp, ListChecks, Plus, Search, Trash2, X } from 'lucide-react'
+import { Button, Dialog, Input, MenuAcoes, Select } from '@/components/ui'
 import type { TarefaRow } from '@/lib/tipos'
 import { normalize } from '@/lib/csv'
-import { hojeISO } from '@/lib/utils'
+import { cn, dataCurta, hojeISO } from '@/lib/utils'
 import { tarefaAtrasada } from '@/lib/alertas'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 import { STATUS_TAREFA, STATUS_TAREFA_KEYS, TIPO_TAREFA, TIPO_TAREFA_KEYS, type StatusTarefa, type TipoTarefa } from '@/features/tarefas/constantes'
 import { ImportTarefasDialog } from '@/features/tarefas/import-dialog'
-import { useAcaoTarefa, useTarefas } from '@/features/tarefas/queries'
+import { useAcaoTarefa, useExcluirTarefas, useTarefas } from '@/features/tarefas/queries'
 import { TarefaCard } from '@/features/tarefas/tarefa-card'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { useTarefaAcoes } from '@/features/tarefas/use-tarefa-acoes'
-import { Kanban, type ColunaKanban } from '@/components/kanban'
+import { ENTRADA_VISAO, Kanban, VisaoToggle, lerVisao, type ColunaKanban, type Visao } from '@/components/kanban'
+import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
+import { CaixaSelecao } from '@/components/caixa-selecao'
 import { DICA_STATUS_TAREFA } from '@/lib/textos-dicas'
 
 const PERIODOS = {
@@ -31,6 +33,7 @@ type Filtros = {
   turma?: string
   tipo?: TipoTarefa
   periodo?: Periodo
+  visao?: Visao
 }
 
 export const Route = createFileRoute('/cs/tarefas')({
@@ -40,6 +43,7 @@ export const Route = createFileRoute('/cs/tarefas')({
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
     tipo: TIPO_TAREFA_KEYS.includes(s.tipo as TipoTarefa) ? (s.tipo as TipoTarefa) : undefined,
     periodo: typeof s.periodo === 'string' && s.periodo in PERIODOS ? (s.periodo as Periodo) : undefined,
+    visao: lerVisao(s.visao),
   }),
   component: TarefasPage,
 })
@@ -61,6 +65,11 @@ function TarefasPage() {
   const { handlers, dialogos, setEditando } = useTarefaAcoes()
   const [novaAberta, setNovaAberta] = useState(false)
   const [importAberto, setImportAberto] = useState(false)
+  const excluirVarias = useExcluirTarefas()
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [excluindoSelecionadas, setExcluindoSelecionadas] = useState(false)
+  // O kanban continua sendo a visão padrão desta página; a lista entra com ?visao=tabela.
+  const visao = filtros.visao ?? 'kanban'
 
   const hoje = hojeISO()
   const participantePorId = useMemo(() => new Map(participantes.data?.map((p) => [p.id, p])), [participantes.data])
@@ -100,6 +109,41 @@ function TarefasPage() {
     return lista
   }, [tarefas.data, participantePorId, filtros, hoje])
 
+  // Na lista: por data prevista (sem data no fim), depois pela ordem do kanban.
+  const ordenadas = useMemo(
+    () => [...filtradas].sort((a, b) => (a.data_prevista ?? '9999').localeCompare(b.data_prevista ?? '9999') || a.ordem - b.ordem),
+    [filtradas],
+  )
+  const { itensPagina, controles } = usePaginacao(ordenadas, { ...filtros, tarefa: undefined, visao: undefined })
+
+  // Só conta o que está selecionado e continua visível com os filtros atuais.
+  const selecionadasLista = filtradas.filter((t) => selecionados.has(t.id))
+  const paginaToda = itensPagina.length > 0 && itensPagina.every((t) => selecionados.has(t.id))
+  const paginaParcial = !paginaToda && itensPagina.some((t) => selecionados.has(t.id))
+
+  function marcar(ids: string[], marcado: boolean) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      for (const id of ids) {
+        if (marcado) novo.add(id)
+        else novo.delete(id)
+      }
+      return novo
+    })
+  }
+
+  function excluirSelecionadas() {
+    excluirVarias.mutate(
+      selecionadasLista.map((t) => t.id),
+      {
+        onSuccess: () => {
+          setSelecionados(new Set())
+          setExcluindoSelecionadas(false)
+        },
+      },
+    )
+  }
+
   // Solta no fim da coluna de destino.
   function mover(t: TarefaRow, status: string) {
     const destino = status as StatusTarefa
@@ -109,6 +153,11 @@ function TarefasPage() {
 
   const setFiltro = (m: Partial<Filtros>) => navigate({ search: (s) => ({ ...s, ...m }), replace: true })
   const temFiltro = !!(filtros.q || filtros.turma || filtros.tipo || filtros.periodo)
+  const vinculo = (t: TarefaRow) => {
+    const p = t.participante_id ? participantePorId.get(t.participante_id) : undefined
+    const turmaId = t.turma_id ?? p?.turma_id
+    return [p?.nome ?? t.para_quem, turmaId && turmaPorId.get(turmaId)?.nome].filter(Boolean).join(' · ')
+  }
 
   return (
     <div className="space-y-4">
@@ -131,7 +180,8 @@ function TarefasPage() {
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_180px_180px_170px_auto]">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_1fr_180px_180px_170px_auto]">
+        <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'kanban' ? undefined : v })} />
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
@@ -165,7 +215,7 @@ function TarefasPage() {
           ))}
         </Select>
         {temFiltro && (
-          <Button variante="fantasma" onClick={() => navigate({ search: {}, replace: true })}>
+          <Button variante="fantasma" onClick={() => navigate({ search: { visao: filtros.visao }, replace: true })}>
             Limpar
           </Button>
         )}
@@ -177,26 +227,159 @@ function TarefasPage() {
         </div>
       )}
 
-      <Kanban
-        colunas={COLUNAS}
-        itens={filtradas}
-        colunaDe={(t) => t.status}
-        chaveDe={(t) => t.id}
-        onMover={mover}
-        carregando={tarefas.isLoading}
-        vazio="Nenhuma tarefa"
-        ajudaMover="Arraste um card para outra coluna para mudar o status. Clique no título para editar a tarefa."
-        renderCard={(t) => (
-          <TarefaCard
-            tarefa={t}
-            participante={t.participante_id ? participantePorId.get(t.participante_id) : undefined}
-            turma={t.turma_id ? turmaPorId.get(t.turma_id) : undefined}
-            filhas={filhasPorMae.get(t.id) ?? 0}
-            hoje={hoje}
-            handlers={handlers}
-          />
-        )}
-      />
+      {visao === 'kanban' ? (
+        <Kanban
+          colunas={COLUNAS}
+          itens={filtradas}
+          colunaDe={(t) => t.status}
+          chaveDe={(t) => t.id}
+          onMover={mover}
+          carregando={tarefas.isLoading}
+          vazio="Nenhuma tarefa"
+          ajudaMover="Arraste um card para outra coluna para mudar o status. Clique no título para editar a tarefa."
+          renderCard={(t) => (
+            <TarefaCard
+              tarefa={t}
+              participante={t.participante_id ? participantePorId.get(t.participante_id) : undefined}
+              turma={t.turma_id ? turmaPorId.get(t.turma_id) : undefined}
+              filhas={filhasPorMae.get(t.id) ?? 0}
+              hoje={hoje}
+              handlers={handlers}
+            />
+          )}
+        />
+      ) : (
+        <>
+          {selecionadasLista.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+              <span className="font-medium">{selecionadasLista.length} selecionada(s)</span>
+              {selecionadasLista.length < filtradas.length && (
+                <button type="button" className="text-primary hover:underline" onClick={() => marcar(filtradas.map((t) => t.id), true)}>
+                  Selecionar todas as {filtradas.length}
+                  {temFiltro ? ' filtradas' : ''}
+                </button>
+              )}
+              <div className="ml-auto">
+                <MenuAcoes
+                  rotulo={`Ações (${selecionadasLista.length})`}
+                  icone={ListChecks}
+                  acoes={[
+                    {
+                      label: 'Excluir…',
+                      icone: Trash2,
+                      descricao: `${selecionadasLista.length} tarefa(s)`,
+                      onSelect: () => setExcluindoSelecionadas(true),
+                    },
+                    'separador',
+                    { label: 'Limpar seleção', icone: X, onSelect: () => setSelecionados(new Set()) },
+                  ]}
+                />
+              </div>
+            </div>
+          )}
+          <div className={cn('overflow-hidden rounded-lg border bg-card', ENTRADA_VISAO)}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className={cn('border-b', CABECALHO_TABELA)}>
+                  <tr>
+                    <th className="w-10 px-4 py-3">
+                      <CaixaSelecao
+                        aria-label="Selecionar todas desta página"
+                        checked={paginaToda}
+                        indeterminate={paginaParcial}
+                        onChange={(marcado) => marcar(itensPagina.map((t) => t.id), marcado)}
+                      />
+                    </th>
+                    <th className="px-4 py-3">Tarefa</th>
+                    <th className="px-4 py-3">Tipo</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Para quem</th>
+                    <th className="px-4 py-3">Data prevista</th>
+                    <th className="w-10 px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {itensPagina.map((t) => {
+                    const Icone = TIPO_TAREFA[t.tipo].icone
+                    const atrasada = tarefaAtrasada(t, hoje)
+                    return (
+                      <tr key={t.id} className={selecionados.has(t.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}>
+                        <td className="px-4 py-3">
+                          <CaixaSelecao
+                            aria-label={`Selecionar ${t.titulo}`}
+                            checked={selecionados.has(t.id)}
+                            onChange={(marcado) => marcar([t.id], marcado)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handlers.onAbrir(t)}
+                            className="text-left font-medium text-foreground hover:text-primary hover:underline"
+                          >
+                            {t.titulo}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Icone className="size-4" />
+                            {TIPO_TAREFA[t.tipo].label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`size-2 rounded-full ${STATUS_TAREFA[t.status].ponto}`} />
+                            {STATUS_TAREFA[t.status].label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{vinculo(t) || <span className="text-muted-foreground/70">—</span>}</td>
+                        <td className={cn('px-4 py-3 whitespace-nowrap', atrasada ? 'font-medium text-rose-600' : 'text-muted-foreground')}>
+                          {t.data_prevista ? dataCurta(t.data_prevista) : '—'}
+                          {atrasada && ' · atrasada'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handlers.onExcluir(t)}
+                            className="rounded-sm p-0.5 text-muted-foreground/50 hover:text-rose-600"
+                            aria-label={`Excluir ${t.titulo}`}
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {tarefas.data && filtradas.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                        {tarefas.data.length === 0 ? 'Nenhuma tarefa cadastrada.' : 'Nenhuma tarefa com esses filtros.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Paginacao {...controles} className={RODAPE_TABELA} />
+          </div>
+        </>
+      )}
+
+      <Dialog
+        aberto={excluindoSelecionadas}
+        onAbertoChange={setExcluindoSelecionadas}
+        titulo={`Excluir ${selecionadasLista.length} tarefa(s)?`}
+        descricao="As tarefas selecionadas serão excluídas. Os eventos já registrados na linha do tempo continuam."
+      >
+        <div className="flex justify-end gap-2">
+          <Button variante="secundario" onClick={() => setExcluindoSelecionadas(false)}>
+            Cancelar
+          </Button>
+          <Button variante="perigo" disabled={excluirVarias.isPending} onClick={excluirSelecionadas}>
+            Excluir
+          </Button>
+        </div>
+      </Dialog>
 
       <TarefaForm aberto={novaAberta} onAbertoChange={setNovaAberta} />
       <ImportTarefasDialog aberto={importAberto} onAbertoChange={setImportAberto} />

@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, CalendarPlus, CheckCircle2, ExternalLink, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, CheckCircle2, ExternalLink, ListChecks, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
 import { Badge, Button, Dialog } from '@/components/ui'
-import type { PlantaoRow } from '@/lib/tipos'
+import type { MarcoRow, PlantaoRow, TipoMarco } from '@/lib/tipos'
 import { cn, dataCurta, haQuanto } from '@/lib/utils'
 import { useParticipantes } from '@/features/participantes/queries'
 import { StatusBadge } from '@/features/participantes/badges'
 import { Dica, InfoDica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
-import { useExcluirTurma, usePlantoes, useTurmas } from '@/features/turmas/queries'
+import { useExcluirTurma, useMarcos, usePlantoes, useSalvarMarco, useTurmas } from '@/features/turmas/queries'
 import { TurmaForm } from '@/features/turmas/turma-form'
 import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
 import { PlantaoForm } from '@/features/turmas/plantao-form'
+import { MarcoForm, TITULO_NPS } from '@/features/turmas/marco-form'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
 import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
+import { ROTULO_TIPO_TURMA } from '@/features/turmas/constantes'
 
 export const Route = createFileRoute('/cs/turmas/$id/')({
   validateSearch: (s: Record<string, unknown>): { visao?: Visao; agrupar?: Agrupamento } => {
@@ -37,12 +39,15 @@ function TurmaPage() {
     navegarBusca({ search: (s) => ({ ...s, ...m }), replace: true })
   const turmas = useTurmas()
   const plantoes = usePlantoes()
+  const marcos = useMarcos()
+  const salvarMarco = useSalvarMarco()
   const participantes = useParticipantes()
   const excluir = useExcluirTurma()
   const { porParticipante } = useEngajamento()
   const [editando, setEditando] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
   const [plantaoAberto, setPlantaoAberto] = useState<number | null>(null)
+  const [marcoAberto, setMarcoAberto] = useState<{ tipo: TipoMarco; marco?: MarcoRow } | null>(null)
   const [novaTarefa, setNovaTarefa] = useState(false)
 
   const turma = turmas.data?.find((t) => t.id === id)
@@ -51,6 +56,9 @@ function TurmaPage() {
     for (const p of plantoes.data ?? []) if (p.turma_id === id) m.set(p.numero, p)
     return m
   }, [plantoes.data, id])
+  const marcosDaTurma = useMemo(() => (marcos.data ?? []).filter((m) => m.turma_id === id), [marcos.data, id])
+  const nps = marcosDaTurma.find((m) => m.tipo === 'nps')
+  const datasLivres = marcosDaTurma.filter((m) => m.tipo === 'outro')
   const membros = useMemo(
     () =>
       (participantes.data ?? [])
@@ -72,19 +80,61 @@ function TurmaPage() {
       </p>
     )
 
+  const cardMarco = (m: MarcoRow) => {
+    const nps = m.tipo === 'nps'
+    return (
+      <div key={m.id} className="space-y-2 rounded-xl border bg-card p-4 text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-semibold">{m.titulo}</span>
+          {m.concluido && (
+            <Badge className="bg-emerald-100 text-emerald-800">
+              <CheckCircle2 className="mr-1 size-3" />
+              {nps ? 'Enviado' : 'Concluído'}
+            </Badge>
+          )}
+        </div>
+        <p className="text-muted-foreground">
+          {m.data ? dataCurta(m.data) : 'Sem data'}
+          {m.horario && ` às ${m.horario.slice(0, 5)}`}
+        </p>
+        {m.observacoes && <p className="line-clamp-2 text-xs text-muted-foreground">{m.observacoes}</p>}
+        <div className="flex gap-1.5 pt-1">
+          {m.concluido ? (
+            <Button
+              variante="fantasma"
+              className="h-7 px-2 text-xs"
+              disabled={salvarMarco.isPending}
+              onClick={() => salvarMarco.mutate({ ...m, concluido: false })}
+            >
+              <Undo2 className="size-3.5" />
+              Desfazer
+            </Button>
+          ) : (
+            <Button className="h-7 px-2 text-xs" disabled={salvarMarco.isPending} onClick={() => salvarMarco.mutate({ ...m, concluido: true })}>
+              <CheckCircle2 className="size-3.5" />
+              {nps ? 'Marcar como enviado' : 'Marcar como concluído'}
+            </Button>
+          )}
+          <Button variante="secundario" className="h-7 px-2 text-xs" onClick={() => setMarcoAberto({ tipo: m.tipo, marco: m })}>
+            Editar
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <Link to="/cs/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
-        <ArrowLeft className="size-4" />
-        Turmas
-      </Link>
-
       <section className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-card p-5">
         <div className="space-y-1">
+          <Link to="/cs/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+            <ArrowLeft className="size-4" />
+            Turmas
+          </Link>
           <h1 className="text-2xl font-bold">Turma {turma.nome}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <Dica texto={DICA_TIPO_TURMA[turma.tipo]} sublinhado>
-              {turma.tipo === 'aberta' ? 'Aberta' : 'In company'}
+              {ROTULO_TIPO_TURMA[turma.tipo]}
             </Dica>
             {turma.data_imersao && <span>Imersão em {dataCurta(turma.data_imersao)}</span>}
             <span>{membros.length} participante(s)</span>
@@ -117,8 +167,8 @@ function TurmaPage() {
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-1.5 text-lg font-semibold">
-          Plantões
-          <InfoDica texto="Cada turma tem até 4 plantões. Agende a data de cada um e, depois que acontecer, marque em Presença quem veio: cada presença soma pontos." />
+          Eventos da turma
+          <InfoDica texto="Os 4 plantões, o envio do NPS e outras datas da turma. Em cada plantão, depois que acontecer, marque em Presença quem veio: cada presença soma pontos. Nas demais datas, marque quando estiver feito. Eventos de hoje e amanhã aparecem na tela Hoje." />
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((n) => {
@@ -168,6 +218,26 @@ function TurmaPage() {
               </div>
             )
           })}
+          {nps ? (
+            cardMarco(nps)
+          ) : (
+            <div className="space-y-2 rounded-xl border bg-card p-4 text-sm">
+              <span className="font-semibold">{TITULO_NPS}</span>
+              <Button variante="secundario" className="w-full text-xs" onClick={() => setMarcoAberto({ tipo: 'nps' })}>
+                <CalendarPlus className="size-3.5" />
+                Agendar
+              </Button>
+            </div>
+          )}
+          {datasLivres.map(cardMarco)}
+          <button
+            type="button"
+            onClick={() => setMarcoAberto({ tipo: 'outro' })}
+            className="flex min-h-24 items-center justify-center gap-1.5 rounded-xl border border-dashed p-4 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <Plus className="size-4" />
+            Novo evento
+          </button>
         </div>
       </section>
 
@@ -249,6 +319,15 @@ function TurmaPage() {
       </section>
 
       <TurmaForm aberto={editando} onAbertoChange={setEditando} turma={turma} />
+      {marcoAberto && (
+        <MarcoForm
+          aberto
+          onAbertoChange={(a) => !a && setMarcoAberto(null)}
+          turmaId={id}
+          tipo={marcoAberto.tipo}
+          marco={marcoAberto.marco}
+        />
+      )}
       {plantaoAberto !== null && (
         <PlantaoForm
           aberto
@@ -267,7 +346,7 @@ function TurmaPage() {
         aberto={excluindo}
         onAbertoChange={setExcluindo}
         titulo="Excluir turma?"
-        descricao={`A turma ${turma.nome}, seus plantões e tarefas serão excluídos. Os participantes ficam sem turma.`}
+        descricao={`A turma ${turma.nome}, seus plantões, datas e tarefas serão excluídos. Os participantes ficam sem turma.`}
       >
         <div className="flex justify-end gap-2">
           <Button variante="secundario" onClick={() => setExcluindo(false)}>

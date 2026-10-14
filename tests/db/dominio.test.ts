@@ -6,6 +6,7 @@ import { criarCliente, type ClienteDb } from './cliente'
 const COLUNAS: [tabela: string, coluna: string, valores: readonly string[]][] = [
   ['weevo_turmas', 'tipo', dominio.TIPOS_TURMA],
   ['weevo_plantoes', 'formato', dominio.FORMATOS_PLANTAO],
+  ['weevo_marcos', 'tipo', dominio.TIPOS_MARCO],
   ['weevo_participantes', 'status', dominio.STATUS_PARTICIPANTE_KEYS],
   ['weevo_participantes', 'weevo_start', dominio.WEEVO_START_ETAPAS],
   ['weevo_tarefas', 'tipo', dominio.TIPOS_TAREFA],

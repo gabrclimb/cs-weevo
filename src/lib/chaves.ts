@@ -2,6 +2,7 @@
 export const chaves = {
   turmas: ['turmas'] as const,
   plantoes: ['plantoes'] as const,
+  marcos: ['marcos'] as const,
   participantes: ['participantes'] as const,
   participante: (id: string) => ['participantes', id] as const,
   eventos: ['eventos'] as const,

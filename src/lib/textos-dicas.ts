@@ -43,7 +43,7 @@ export const DICA_ALERTA = {
 } as const
 
 export const DICA_TIPO_TURMA = {
-  aberta: 'Turma com inscrições abertas ao público.',
+  aberta: 'Turma pública: vendida ao público, com inscrição individual.',
   in_company: 'Turma fechada, feita para uma empresa.',
 } as const
 
@@ -91,7 +91,8 @@ export const DICA_COLUNA_HOJE = {
   hoje: 'Tarefas com data prevista para hoje.',
   aguardando: `Mensagens enviadas há mais de ${ALERTAS.aguardandoHoras}h sem resposta. Vale cobrar ou encerrar.`,
   alerta: 'Participantes com alerta de sem contato ou sem resposta. Crie uma tarefa de contato com um clique.',
-  plantoes: 'Plantões marcados para hoje e amanhã. Clique para abrir a lista de presença.',
+  plantoes:
+    'Eventos das turmas (plantões, envio do NPS e outras datas) para hoje e amanhã. Clique no plantão para abrir a lista de presença, ou no evento para abrir a turma.',
 } as const
 
 /** Colunas do kanban de turmas. */
