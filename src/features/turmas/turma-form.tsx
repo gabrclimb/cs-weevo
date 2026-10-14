@@ -3,6 +3,7 @@ import { Button, Campo, Dialog, Input, Select } from '@/components/ui'
 import type { TurmaRow } from '@/lib/tipos'
 import { DICA_TIPO_TURMA } from '@/lib/textos-dicas'
 import { useSalvarTurma } from './queries'
+import { ROTULO_TIPO_TURMA } from './constantes'
 
 const VAZIO = { nome: '', tipo: 'aberta' as TurmaRow['tipo'], data_imersao: '', link_grupo: '', ativa: true }
 
@@ -69,8 +70,8 @@ export function TurmaForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Tipo" dica={DICA_TIPO_TURMA[form.tipo]}>
             <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v as TurmaRow['tipo'] })}>
-              <option value="aberta">Aberta</option>
-              <option value="in_company">In company</option>
+              <option value="aberta">{ROTULO_TIPO_TURMA.aberta}</option>
+              <option value="in_company">{ROTULO_TIPO_TURMA.in_company}</option>
             </Select>
           </Campo>
           <Campo label="Data da imersão" ajuda="Data do encontro presencial que deu origem à turma. Ordena a lista de turmas.">

@@ -18,6 +18,7 @@ import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engaja
 import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
 import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
+import { ROTULO_TIPO_TURMA } from '@/features/turmas/constantes'
 
 export const Route = createFileRoute('/cs/turmas/$id/')({
   validateSearch: (s: Record<string, unknown>): { visao?: Visao; agrupar?: Agrupamento } => {
@@ -124,17 +125,16 @@ function TurmaPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/cs/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
-        <ArrowLeft className="size-4" />
-        Turmas
-      </Link>
-
       <section className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-card p-5">
         <div className="space-y-1">
+          <Link to="/cs/turmas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+            <ArrowLeft className="size-4" />
+            Turmas
+          </Link>
           <h1 className="text-2xl font-bold">Turma {turma.nome}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <Dica texto={DICA_TIPO_TURMA[turma.tipo]} sublinhado>
-              {turma.tipo === 'aberta' ? 'Aberta' : 'In company'}
+              {ROTULO_TIPO_TURMA[turma.tipo]}
             </Dica>
             {turma.data_imersao && <span>Imersão em {dataCurta(turma.data_imersao)}</span>}
             <span>{membros.length} participante(s)</span>
@@ -167,8 +167,8 @@ function TurmaPage() {
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-1.5 text-lg font-semibold">
-          Plantões
-          <InfoDica texto="Cada turma tem até 4 plantões. Agende a data de cada um e, depois que acontecer, marque em Presença quem veio: cada presença soma pontos." />
+          Eventos da turma
+          <InfoDica texto="Os 4 plantões, o envio do NPS e outras datas da turma. Em cada plantão, depois que acontecer, marque em Presença quem veio: cada presença soma pontos. Nas demais datas, marque quando estiver feito. Eventos de hoje e amanhã aparecem na tela Hoje." />
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((n) => {
@@ -218,15 +218,6 @@ function TurmaPage() {
               </div>
             )
           })}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 text-lg font-semibold">
-          Datas da turma
-          <InfoDica texto="Datas que valem para a turma toda, como o envio do NPS e o encerramento. Marque quando estiver feito. Datas de hoje e amanhã aparecem na tela Hoje." />
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {nps ? (
             cardMarco(nps)
           ) : (
@@ -245,7 +236,7 @@ function TurmaPage() {
             className="flex min-h-24 items-center justify-center gap-1.5 rounded-xl border border-dashed p-4 text-sm text-muted-foreground hover:border-primary hover:text-primary"
           >
             <Plus className="size-4" />
-            Nova data
+            Novo evento
           </button>
         </div>
       </section>

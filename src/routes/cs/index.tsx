@@ -34,7 +34,7 @@ const COLUNAS_HOJE: ColunaKanban[] = [
   { chave: 'hoje', titulo: 'Para hoje', ponto: 'bg-sky-500', dica: DICA_COLUNA_HOJE.hoje },
   { chave: 'aguardando', titulo: `Aguardando há +${ALERTAS.aguardandoHoras}h`, ponto: 'bg-amber-500', dica: DICA_COLUNA_HOJE.aguardando },
   { chave: 'alerta', titulo: 'Sem contato ou sem resposta', ponto: 'bg-amber-500', dica: DICA_COLUNA_HOJE.alerta },
-  { chave: 'plantoes', titulo: 'Plantões e datas hoje e amanhã', ponto: 'bg-emerald-500', dica: DICA_COLUNA_HOJE.plantoes },
+  { chave: 'plantoes', titulo: 'Eventos de hoje e amanhã', ponto: 'bg-emerald-500', dica: DICA_COLUNA_HOJE.plantoes },
 ]
 
 function HojePage() {
@@ -245,7 +245,7 @@ function HojePage() {
         </Secao>
 
         <Secao
-          titulo="Plantões e datas de hoje e amanhã"
+          titulo="Eventos das turmas hoje e amanhã"
           total={proximosPlantoes.length + proximosMarcos.length}
           dica={DICA_COLUNA_HOJE.plantoes}
         >

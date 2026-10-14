@@ -63,7 +63,7 @@ export function MarcoForm({
     <Dialog
       aberto={aberto}
       onAbertoChange={onAbertoChange}
-      titulo={nps ? TITULO_NPS : marco ? 'Editar data' : 'Nova data da turma'}
+      titulo={nps ? TITULO_NPS : marco ? 'Editar evento' : 'Novo evento da turma'}
       descricao="Vale para a turma toda. Datas de hoje e amanhã aparecem na tela Hoje."
     >
       <form onSubmit={enviar} className="space-y-3">
