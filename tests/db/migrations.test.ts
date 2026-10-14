@@ -31,6 +31,7 @@ describe('migrations', () => {
       'weevo_admins',
       'weevo_depoimentos',
       'weevo_eventos',
+      'weevo_marcos',
       'weevo_participantes',
       'weevo_plantoes',
       'weevo_tarefas',
