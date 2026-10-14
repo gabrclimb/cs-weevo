@@ -150,3 +150,48 @@ export function useAlternarPresenca() {
     onError: (e) => toast.error(mensagemErro(e)),
   })
 }
+
+type MarcoInsert = Database['public']['Tables']['weevo_marcos']['Insert']
+
+/** Datas da turma além dos plantões: envio do NPS e datas livres. */
+export function useMarcos() {
+  return useQuery({
+    queryKey: chaves.marcos,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('weevo_marcos').select('*').order('data', { nullsFirst: false })
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useSalvarMarco() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...dados }: MarcoInsert) => {
+      const consulta = id
+        ? supabase.from('weevo_marcos').update(dados).eq('id', id)
+        : supabase.from('weevo_marcos').insert(dados)
+      const { error } = await consulta
+      if (error) throw error
+      return true
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: chaves.marcos }),
+    onError: (e) => toast.error(mensagemErro(e)),
+  })
+}
+
+export function useExcluirMarco() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('weevo_marcos').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success('Data excluída.')
+      qc.invalidateQueries({ queryKey: chaves.marcos })
+    },
+    onError: (e) => toast.error(mensagemErro(e)),
+  })
+}

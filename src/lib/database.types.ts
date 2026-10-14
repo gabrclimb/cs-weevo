@@ -343,6 +343,53 @@ export type Database = {
           },
         ]
       }
+      weevo_marcos: {
+        Row: {
+          concluido: boolean
+          created_at: string
+          data: string | null
+          horario: string | null
+          id: string
+          observacoes: string | null
+          tipo: string
+          titulo: string
+          turma_id: string
+          updated_at: string
+        }
+        Insert: {
+          concluido?: boolean
+          created_at?: string
+          data?: string | null
+          horario?: string | null
+          id?: string
+          observacoes?: string | null
+          tipo?: string
+          titulo: string
+          turma_id: string
+          updated_at?: string
+        }
+        Update: {
+          concluido?: boolean
+          created_at?: string
+          data?: string | null
+          horario?: string | null
+          id?: string
+          observacoes?: string | null
+          tipo?: string
+          titulo?: string
+          turma_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weevo_marcos_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "weevo_turmas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weevo_participantes: {
         Row: {
           apelido: string | null

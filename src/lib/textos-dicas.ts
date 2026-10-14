@@ -91,7 +91,8 @@ export const DICA_COLUNA_HOJE = {
   hoje: 'Tarefas com data prevista para hoje.',
   aguardando: `Mensagens enviadas há mais de ${ALERTAS.aguardandoHoras}h sem resposta. Vale cobrar ou encerrar.`,
   alerta: 'Participantes com alerta de sem contato ou sem resposta. Crie uma tarefa de contato com um clique.',
-  plantoes: 'Plantões marcados para hoje e amanhã. Clique para abrir a lista de presença.',
+  plantoes:
+    'Plantões e datas da turma (como o envio do NPS) para hoje e amanhã. Clique no plantão para abrir a lista de presença, ou na data para abrir a turma.',
 } as const
 
 /** Colunas do kanban de turmas. */

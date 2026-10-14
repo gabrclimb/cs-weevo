@@ -10,6 +10,7 @@ import type {
   OrigemEvento,
   ParticipanteStatus,
   StatusTarefa,
+  TipoMarco,
   TipoTarefa,
   TipoTurma,
   WeevoStart,
@@ -34,10 +35,11 @@ type Estreitar<Nome extends keyof TabelasGeradas, Colunas> = {
 
 type Tabelas = Omit<
   TabelasGeradas,
-  'weevo_turmas' | 'weevo_plantoes' | 'weevo_participantes' | 'weevo_tarefas' | 'weevo_eventos'
+  'weevo_turmas' | 'weevo_plantoes' | 'weevo_marcos' | 'weevo_participantes' | 'weevo_tarefas' | 'weevo_eventos'
 > & {
   weevo_turmas: Estreitar<'weevo_turmas', { tipo: TipoTurma }>
   weevo_plantoes: Estreitar<'weevo_plantoes', { formato: FormatoPlantao }>
+  weevo_marcos: Estreitar<'weevo_marcos', { tipo: TipoMarco }>
   weevo_participantes: Estreitar<'weevo_participantes', { status: ParticipanteStatus; weevo_start: WeevoStart }>
   weevo_tarefas: Estreitar<'weevo_tarefas', { tipo: TipoTarefa; status: StatusTarefa }>
   weevo_eventos: Estreitar<'weevo_eventos', { tipo: EventoTipo; categoria: EventoCategoria; origem: OrigemEvento }>
@@ -51,6 +53,7 @@ type Row<Nome extends keyof Tabelas> = Tabelas[Nome]['Row']
 
 export type TurmaRow = Row<'weevo_turmas'>
 export type PlantaoRow = Row<'weevo_plantoes'>
+export type MarcoRow = Row<'weevo_marcos'>
 export type ParticipanteRow = Row<'weevo_participantes'>
 export type TarefaRow = Row<'weevo_tarefas'>
 export type EventoRow = Row<'weevo_eventos'>

@@ -1,15 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { CalendarDays, Plus } from 'lucide-react'
+import { CalendarCheck, CalendarDays, Plus } from 'lucide-react'
 import { Button } from '@/components/ui'
-import type { ParticipanteRow, PlantaoRow, TarefaRow } from '@/lib/tipos'
+import type { MarcoRow, ParticipanteRow, PlantaoRow, TarefaRow } from '@/lib/tipos'
 import type { AlertaParticipante } from '@/lib/alertas'
 import { ENTRADA_VISAO, Kanban, VisaoToggle, lerVisao, type ColunaKanban, type Visao } from '@/components/kanban'
 import { aguardandoDemais, tarefaAtrasada } from '@/lib/alertas'
 import { ALERTAS } from '@/lib/config'
 import { cn, dataCurta, hojeISO } from '@/lib/utils'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
-import { usePlantoes } from '@/features/turmas/queries'
+import { useMarcos, usePlantoes } from '@/features/turmas/queries'
 import { useTarefas } from '@/features/tarefas/queries'
 import { TarefaCard } from '@/features/tarefas/tarefa-card'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
@@ -27,13 +27,14 @@ type ItemHoje =
   | { coluna: 'atrasadas' | 'hoje' | 'aguardando'; tipo: 'tarefa'; t: TarefaRow }
   | { coluna: 'alerta'; tipo: 'alerta'; p: ParticipanteRow; alertas: AlertaParticipante[] }
   | { coluna: 'plantoes'; tipo: 'plantao'; pl: PlantaoRow }
+  | { coluna: 'plantoes'; tipo: 'marco'; m: MarcoRow }
 
 const COLUNAS_HOJE: ColunaKanban[] = [
   { chave: 'atrasadas', titulo: 'Atrasadas', ponto: 'bg-rose-500', dica: DICA_COLUNA_HOJE.atrasadas },
   { chave: 'hoje', titulo: 'Para hoje', ponto: 'bg-sky-500', dica: DICA_COLUNA_HOJE.hoje },
   { chave: 'aguardando', titulo: `Aguardando há +${ALERTAS.aguardandoHoras}h`, ponto: 'bg-amber-500', dica: DICA_COLUNA_HOJE.aguardando },
   { chave: 'alerta', titulo: 'Sem contato ou sem resposta', ponto: 'bg-amber-500', dica: DICA_COLUNA_HOJE.alerta },
-  { chave: 'plantoes', titulo: 'Plantões hoje e amanhã', ponto: 'bg-emerald-500', dica: DICA_COLUNA_HOJE.plantoes },
+  { chave: 'plantoes', titulo: 'Plantões e datas hoje e amanhã', ponto: 'bg-emerald-500', dica: DICA_COLUNA_HOJE.plantoes },
 ]
 
 function HojePage() {
@@ -44,6 +45,7 @@ function HojePage() {
   const participantes = useParticipantes()
   const turmas = useTurmas()
   const plantoes = usePlantoes()
+  const marcos = useMarcos()
   const { porParticipante } = useEngajamento()
   const { handlers, dialogos } = useTarefaAcoes()
   const [contatoPara, setContatoPara] = useState<ParticipanteRow | null>(null)
@@ -69,6 +71,10 @@ function HojePage() {
 
   const proximosPlantoes = (plantoes.data ?? [])
     .filter((p) => p.data === hoje || p.data === amanha)
+    .sort((a, b) => `${a.data}${a.horario}`.localeCompare(`${b.data}${b.horario}`))
+  // Datas da turma (NPS, encerramento…) ainda não concluídas.
+  const proximosMarcos = (marcos.data ?? [])
+    .filter((m) => !m.concluido && (m.data === hoje || m.data === amanha))
     .sort((a, b) => `${a.data}${a.horario}`.localeCompare(`${b.data}${b.horario}`))
 
   const cardTarefa = (t: TarefaRow) => (
@@ -114,12 +120,33 @@ function HojePage() {
     </Link>
   )
 
+  const cardMarco = (m: MarcoRow) => (
+    <Link
+      key={m.id}
+      to="/cs/turmas/$id"
+      params={{ id: m.turma_id }}
+      className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm hover:border-primary"
+    >
+      <CalendarCheck className="size-5 text-primary" />
+      <div>
+        <div className="font-medium">
+          {m.titulo} · Turma {turmaPorId.get(m.turma_id)?.nome}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {m.data === hoje ? 'Hoje' : 'Amanhã'}
+          {m.horario && ` às ${m.horario.slice(0, 5)}`}
+        </div>
+      </div>
+    </Link>
+  )
+
   const itensKanban: ItemHoje[] = [
     ...atrasadas.map((t) => ({ coluna: 'atrasadas' as const, tipo: 'tarefa' as const, t })),
     ...deHoje.map((t) => ({ coluna: 'hoje' as const, tipo: 'tarefa' as const, t })),
     ...aguardando.map((t) => ({ coluna: 'aguardando' as const, tipo: 'tarefa' as const, t })),
     ...comAlerta.map(({ p, alertas }) => ({ coluna: 'alerta' as const, tipo: 'alerta' as const, p, alertas })),
     ...proximosPlantoes.map((pl) => ({ coluna: 'plantoes' as const, tipo: 'plantao' as const, pl })),
+    ...proximosMarcos.map((m) => ({ coluna: 'plantoes' as const, tipo: 'marco' as const, m })),
   ]
 
   const tudoEmDia =
@@ -128,7 +155,8 @@ function HojePage() {
     !deHoje.length &&
     !aguardando.length &&
     !comAlerta.length &&
-    !proximosPlantoes.length
+    !proximosPlantoes.length &&
+    !proximosMarcos.length
 
   return (
     <div className="space-y-8">
@@ -148,7 +176,7 @@ function HojePage() {
           colunas={COLUNAS_HOJE}
           itens={itensKanban}
           colunaDe={(i) => i.coluna}
-          chaveDe={(i) => `${i.coluna}:${i.tipo === 'tarefa' ? i.t.id : i.tipo === 'alerta' ? i.p.id : i.pl.id}`}
+          chaveDe={(i) => `${i.coluna}:${i.tipo === 'tarefa' ? i.t.id : i.tipo === 'alerta' ? i.p.id : i.tipo === 'marco' ? i.m.id : i.pl.id}`}
           carregando={tarefas.isLoading}
           vazio="Nada pendente"
           renderCard={(i) =>
@@ -156,6 +184,8 @@ function HojePage() {
               cardTarefa(i.t)
             ) : i.tipo === 'plantao' ? (
               cardPlantao(i.pl)
+            ) : i.tipo === 'marco' ? (
+              cardMarco(i.m)
             ) : (
               <article className="space-y-2 rounded-lg border bg-card p-3 text-sm shadow-xs">
                 <Link to="/cs/participantes/$id" params={{ id: i.p.id }} className="font-medium hover:text-primary hover:underline">
@@ -214,8 +244,15 @@ function HojePage() {
           </ul>
         </Secao>
 
-        <Secao titulo="Plantões de hoje e amanhã" total={proximosPlantoes.length} dica={DICA_COLUNA_HOJE.plantoes}>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">{proximosPlantoes.map(cardPlantao)}</div>
+        <Secao
+          titulo="Plantões e datas de hoje e amanhã"
+          total={proximosPlantoes.length + proximosMarcos.length}
+          dica={DICA_COLUNA_HOJE.plantoes}
+        >
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {proximosPlantoes.map(cardPlantao)}
+            {proximosMarcos.map(cardMarco)}
+          </div>
         </Secao>
         </div>
       )}
