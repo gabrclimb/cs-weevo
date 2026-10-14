@@ -182,6 +182,7 @@ describe('privilégios de tabela', () => {
       { tabela: 'weevo_depoimentos', papel: 'anon', privilegios: 'SELECT' },
       { tabela: 'weevo_depoimentos', papel: 'authenticated', privilegios: 'SELECT,UPDATE' },
       { tabela: 'weevo_eventos', papel: 'authenticated', privilegios: 'DELETE,INSERT,SELECT' },
+      { tabela: 'weevo_marcos', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_participantes', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_plantoes', papel: 'authenticated', privilegios: DML },
       { tabela: 'weevo_tarefas', papel: 'authenticated', privilegios: DML },

@@ -7,6 +7,9 @@ export type TipoTurma = (typeof TIPOS_TURMA)[number]
 export const FORMATOS_PLANTAO = ['presencial', 'online'] as const
 export type FormatoPlantao = (typeof FORMATOS_PLANTAO)[number]
 
+export const TIPOS_MARCO = ['nps', 'outro'] as const
+export type TipoMarco = (typeof TIPOS_MARCO)[number]
+
 export const STATUS_PARTICIPANTE_KEYS = ['ativo', 'aguardando', 'sem_resposta', 'inativo'] as const
 export type ParticipanteStatus = (typeof STATUS_PARTICIPANTE_KEYS)[number]
 
