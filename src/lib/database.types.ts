@@ -695,6 +695,62 @@ export type Database = {
           },
         ]
       }
+      weevo_kanban_cards: {
+        Row: {
+          coluna_id: string
+          created_at: string
+          item_id: string
+          quadro: string
+          valor_base: string
+        }
+        Insert: {
+          coluna_id: string
+          created_at?: string
+          item_id: string
+          quadro: string
+          valor_base: string
+        }
+        Update: {
+          coluna_id?: string
+          created_at?: string
+          item_id?: string
+          quadro?: string
+          valor_base?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weevo_kanban_cards_quadro_coluna_id_fkey"
+            columns: ["quadro", "coluna_id"]
+            isOneToOne: false
+            referencedRelation: "weevo_kanban_colunas"
+            referencedColumns: ["quadro", "id"]
+          },
+        ]
+      }
+      weevo_kanban_colunas: {
+        Row: {
+          created_at: string
+          id: string
+          ordem: number
+          quadro: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ordem?: number
+          quadro: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ordem?: number
+          quadro?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
       weevo_marcos: {
         Row: {
           concluido: boolean

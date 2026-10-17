@@ -17,6 +17,8 @@ import { ENTRADA_VISAO, Kanban, VisaoToggle, lerVisao, type ColunaKanban, type V
 import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
 import { CaixaSelecao } from '@/components/caixa-selecao'
 import { DICA_STATUS_TAREFA } from '@/lib/textos-dicas'
+import { aplicarPersonalizadas } from '@/features/kanban/colunas'
+import { useQuadroKanban } from '@/features/kanban/queries'
 
 const PERIODOS = {
   todas: 'Qualquer data',
@@ -33,6 +35,8 @@ type Filtros = {
   turma?: string
   tipo?: TipoTarefa
   periodo?: Periodo
+  /** Coluna do kanban (status fixo ou coluna criada). */
+  coluna?: string
   visao?: Visao
 }
 
@@ -43,6 +47,7 @@ export const Route = createFileRoute('/cs/tarefas')({
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
     tipo: TIPO_TAREFA_KEYS.includes(s.tipo as TipoTarefa) ? (s.tipo as TipoTarefa) : undefined,
     periodo: typeof s.periodo === 'string' && s.periodo in PERIODOS ? (s.periodo as Periodo) : undefined,
+    coluna: typeof s.coluna === 'string' && s.coluna ? s.coluna : undefined,
     visao: lerVisao(s.visao),
   }),
   component: TarefasPage,
@@ -66,6 +71,12 @@ function TarefasPage() {
   const [novaAberta, setNovaAberta] = useState(false)
   const [importAberto, setImportAberto] = useState(false)
   const excluirVarias = useExcluirTarefas()
+  const quadro = useQuadroKanban('tarefas')
+  // Colunas fixas (status) mais as criadas pela equipe; a lista mostra a mesma coluna do kanban.
+  const montado = useMemo(
+    () => aplicarPersonalizadas('tarefas', COLUNAS, quadro.personalizadas, { id: (t: TarefaRow) => t.id, valor: (t) => t.status }),
+    [quadro.personalizadas],
+  )
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [excluindoSelecionadas, setExcluindoSelecionadas] = useState(false)
   // O kanban continua sendo a visão padrão desta página; a lista entra com ?visao=tabela.
@@ -103,11 +114,12 @@ function TarefasPage() {
       if (filtros.periodo === 'hoje' && t.data_prevista !== hoje) continue
       if (filtros.periodo === 'semana' && !(t.data_prevista && t.data_prevista >= hoje && t.data_prevista <= semana)) continue
       if (filtros.periodo === 'sem_data' && t.data_prevista) continue
+      if (filtros.coluna && montado.colunaDe(t) !== filtros.coluna) continue
       if (busca && !normalize(`${t.titulo} ${p?.nome ?? ''} ${p?.apelido ?? ''} ${t.para_quem ?? ''}`).includes(busca)) continue
       lista.push(t)
     }
     return lista
-  }, [tarefas.data, participantePorId, filtros, hoje])
+  }, [tarefas.data, participantePorId, filtros, hoje, montado])
 
   // Na lista: por data prevista (sem data no fim), depois pela ordem do kanban.
   const ordenadas = useMemo(
@@ -152,7 +164,7 @@ function TarefasPage() {
   }
 
   const setFiltro = (m: Partial<Filtros>) => navigate({ search: (s) => ({ ...s, ...m }), replace: true })
-  const temFiltro = !!(filtros.q || filtros.turma || filtros.tipo || filtros.periodo)
+  const temFiltro = !!(filtros.q || filtros.turma || filtros.tipo || filtros.periodo || filtros.coluna)
   const vinculo = (t: TarefaRow) => {
     const p = t.participante_id ? participantePorId.get(t.participante_id) : undefined
     const turmaId = t.turma_id ?? p?.turma_id
@@ -180,8 +192,14 @@ function TarefasPage() {
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_1fr_180px_180px_170px_auto]">
-        <VisaoToggle valor={visao} onChange={(v) => setFiltro({ visao: v === 'kanban' ? undefined : v })} />
+      <div
+        className={cn(
+          'grid gap-2 sm:grid-cols-2',
+          visao === 'tabela' ? 'lg:grid-cols-[auto_1fr_170px_170px_170px_170px_auto]' : 'lg:grid-cols-[auto_1fr_180px_180px_170px_auto]',
+        )}
+      >
+        {/* O filtro de status só existe na lista: no kanban, cada status já é uma coluna. */}
+        <VisaoToggle valor={visao} onChange={(v) => setFiltro(v === 'kanban' ? { visao: undefined, coluna: undefined } : { visao: v })} />
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
@@ -214,6 +232,16 @@ function TarefasPage() {
             </option>
           ))}
         </Select>
+        {visao === 'tabela' && (
+          <Select value={filtros.coluna ?? ''} aria-label="Status" onValueChange={(v) => setFiltro({ coluna: v || undefined })}>
+            <option value="">Todos os status</option>
+            {montado.colunas.map((c) => (
+              <option key={c.chave} value={c.chave}>
+                {c.titulo}
+              </option>
+            ))}
+          </Select>
+        )}
         {temFiltro && (
           <Button variante="fantasma" onClick={() => navigate({ search: { visao: filtros.visao }, replace: true })}>
             Limpar
@@ -229,11 +257,12 @@ function TarefasPage() {
 
       {visao === 'kanban' ? (
         <Kanban
-          colunas={COLUNAS}
+          colunas={montado.colunas}
           itens={filtradas}
-          colunaDe={(t) => t.status}
+          colunaDe={montado.colunaDe}
           chaveDe={(t) => t.id}
-          onMover={mover}
+          onMover={(t, destino) => quadro.soltar(t.id, destino, t.status, () => mover(t, destino))}
+          edicaoColunas={quadro.edicao}
           carregando={tarefas.isLoading}
           vazio="Nenhuma tarefa"
           ajudaMover="Arraste um card para outra coluna para mudar o status. Clique no título para editar a tarefa."
@@ -302,6 +331,7 @@ function TarefasPage() {
                   {itensPagina.map((t) => {
                     const Icone = TIPO_TAREFA[t.tipo].icone
                     const atrasada = tarefaAtrasada(t, hoje)
+                    const coluna = montado.personalizadaDe(t)
                     return (
                       <tr key={t.id} className={selecionados.has(t.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}>
                         <td className="px-4 py-3">
@@ -328,8 +358,8 @@ function TarefasPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1.5">
-                            <span className={`size-2 rounded-full ${STATUS_TAREFA[t.status].ponto}`} />
-                            {STATUS_TAREFA[t.status].label}
+                            <span className={`size-2 rounded-full ${coluna?.ponto ?? STATUS_TAREFA[t.status].ponto}`} />
+                            {coluna?.titulo ?? STATUS_TAREFA[t.status].label}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{vinculo(t) || <span className="text-muted-foreground/70">—</span>}</td>

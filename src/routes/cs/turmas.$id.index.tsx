@@ -16,7 +16,8 @@ import { MarcoForm, TITULO_NPS } from '@/features/turmas/marco-form'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
 import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
-import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { colunaPersonalizada, lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { usePersonalizadas } from '@/features/kanban/queries'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
 import { ROTULO_TIPO_TURMA } from '@/features/turmas/constantes'
 
@@ -44,6 +45,7 @@ function TurmaPage() {
   const participantes = useParticipantes()
   const excluir = useExcluirTurma()
   const { porParticipante } = useEngajamento()
+  const personalizadas = usePersonalizadas()
   const [editando, setEditando] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
   const [plantaoAberto, setPlantaoAberto] = useState<number | null>(null)
@@ -290,7 +292,7 @@ function TurmaPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-2.5">
-                        <StatusBadge status={p.status} />
+                        <StatusBadge status={p.status} coluna={colunaPersonalizada(personalizadas, 'status', p)} />
                       </td>
                       <td className="px-4 py-2.5 tabular-nums">{eng?.pontuacao.detalhe.presencas ?? 0}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{haQuanto(p.ultima_resposta_em)}</td>

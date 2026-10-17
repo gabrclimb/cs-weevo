@@ -9,4 +9,5 @@ export const chaves = {
   eventosDe: (participanteId: string) => ['eventos', participanteId] as const,
   tarefas: ['tarefas'] as const,
   templates: ['templates'] as const,
+  kanban: ['kanban'] as const,
 }

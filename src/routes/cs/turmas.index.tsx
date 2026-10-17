@@ -13,6 +13,14 @@ import { useEngajamento } from '@/features/engajamento'
 import { Dica, Th } from '@/components/dica'
 import { DICA_COLUNA, DICA_SITUACAO_TURMA, DICA_TIPO_TURMA } from '@/lib/textos-dicas'
 import { ROTULO_TIPO_TURMA } from '@/features/turmas/constantes'
+import { aplicarPersonalizadas, type Quadro } from '@/features/kanban/colunas'
+import { useQuadroKanban } from '@/features/kanban/queries'
+
+/** Valor do campo de cada quadro editável de turmas: é o que define a coluna fixa. */
+const VALOR_TURMA = {
+  'turmas.situacao': (t: TurmaRow) => (t.ativa ? 'ativa' : 'encerrada'),
+  'turmas.tipo': (t: TurmaRow) => t.tipo,
+} satisfies Partial<Record<Quadro, (t: TurmaRow) => string>>
 
 const AGRUPAMENTOS_TURMA = {
   situacao: 'Situação',
@@ -100,6 +108,20 @@ function TurmasPage() {
             mover: (t, c) => atualizar.mutate({ id: t.id, mudancas: { ativa: c === 'ativa' } }),
           }
 
+  // "Plantões realizados" é calculado: não ganha colunas novas.
+  const quadroTurma = agrupamento === 'tipo' ? 'turmas.tipo' : 'turmas.situacao'
+  const editavel = agrupamento !== 'plantoes'
+  const quadro = useQuadroKanban(quadroTurma)
+  const montado = editavel
+    ? aplicarPersonalizadas(quadroTurma, grupos.colunas, quadro.personalizadas, { id: (t: TurmaRow) => t.id, valor: VALOR_TURMA[quadroTurma] })
+    : undefined
+  // Na lista, a turma que está numa coluna criada (de situação ou de tipo) mostra essa coluna junto dos selos.
+  const colunasNaLista = (t: TurmaRow) =>
+    (['turmas.situacao', 'turmas.tipo'] as const).flatMap((q) => {
+      const c = aplicarPersonalizadas(q, [], quadro.personalizadas, { id: (x: TurmaRow) => x.id, valor: VALOR_TURMA[q] }).personalizadaDe(t)
+      return c ? [c] : []
+    })
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -131,11 +153,15 @@ function TurmasPage() {
 
       {visao === 'kanban' ? (
         <Kanban
-          colunas={grupos.colunas}
+          colunas={montado?.colunas ?? grupos.colunas}
           itens={ordenadas}
-          colunaDe={grupos.colunaDe}
+          colunaDe={montado?.colunaDe ?? grupos.colunaDe}
           chaveDe={(t) => t.id}
-          onMover={grupos.mover}
+          onMover={
+            grupos.mover &&
+            ((t, destino) => quadro.soltar(t.id, destino, VALOR_TURMA[quadroTurma](t), () => grupos.mover!(t, destino)))
+          }
+          edicaoColunas={editavel ? quadro.edicao : undefined}
           carregando={turmas.isLoading}
           vazio="Nenhuma turma"
           ajudaMover={agrupamento === 'tipo' ? 'Arraste uma turma para outra coluna para mudar o tipo.' : 'Arraste uma turma para outra coluna para abrir ou encerrar o suporte.'}
@@ -174,9 +200,14 @@ function TurmasPage() {
                     </span>
                   </Dica>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   {agrupamento !== 'tipo' && <TipoBadge tipo={t.tipo} />}
                   {agrupamento !== 'situacao' && !t.ativa && <EncerradaBadge />}
+                  {colunasNaLista(t)
+                    .filter((c) => c.chave !== montado?.colunaDe(t))
+                    .map((c) => (
+                      <ColunaBadge key={c.chave} coluna={c} />
+                    ))}
                 </div>
               </article>
             )
@@ -210,9 +241,12 @@ function TurmasPage() {
                       <Link to="/cs/turmas/$id" params={{ id: t.id }} className="font-medium hover:text-primary hover:underline">
                         {t.nome}
                       </Link>
-                      <div className="mt-0.5 flex gap-1">
+                      <div className="mt-0.5 flex flex-wrap gap-1">
                         <TipoBadge tipo={t.tipo} />
                         {!t.ativa && <EncerradaBadge />}
+                        {colunasNaLista(t).map((c) => (
+                          <ColunaBadge key={c.chave} coluna={c} />
+                        ))}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{dataCurta(t.data_imersao) || '—'}</td>
@@ -250,6 +284,16 @@ function TipoBadge({ tipo }: { tipo: TurmaRow['tipo'] }) {
     <Dica texto={DICA_TIPO_TURMA[tipo]}>
       <Badge className="bg-muted text-muted-foreground">{ROTULO_TIPO_TURMA[tipo]}</Badge>
     </Dica>
+  )
+}
+
+/** Coluna criada pela equipe em que a turma está. */
+function ColunaBadge({ coluna }: { coluna: ColunaKanban }) {
+  return (
+    <Badge className="gap-1.5 bg-muted text-muted-foreground">
+      <span className={cn('size-1.5 rounded-full', coluna.ponto)} />
+      {coluna.titulo}
+    </Badge>
   )
 }
 
