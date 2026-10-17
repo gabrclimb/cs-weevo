@@ -393,21 +393,26 @@ export function MenuAcoes({
   acoes,
   variante = 'primario',
   disabled,
+  gatilho,
 }: {
   rotulo: ReactNode
   icone?: LucideIcon
   acoes: AcaoMenu[]
   variante?: Variante
   disabled?: boolean
+  /** Botão próprio no lugar do padrão (ex.: só um ícone). Precisa ser um `<button>`. */
+  gatilho?: ReactElement
 }) {
   return (
     <MenuPrimitive.Root modal={false}>
       <MenuPrimitive.Trigger asChild disabled={disabled}>
-        <Button variante={variante}>
-          {Icone && <Icone className="size-4" />}
-          {rotulo}
-          <ChevronDown className="size-4 opacity-70" aria-hidden="true" />
-        </Button>
+        {gatilho ?? (
+          <Button variante={variante}>
+            {Icone && <Icone className="size-4" />}
+            {rotulo}
+            <ChevronDown className="size-4 opacity-70" aria-hidden="true" />
+          </Button>
+        )}
       </MenuPrimitive.Trigger>
       <MenuPrimitive.Portal>
         <MenuPrimitive.Content

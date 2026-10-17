@@ -10,7 +10,7 @@ import { useDicas } from '@/lib/dicas'
 import { EdicaoMassaDialog } from '@/features/participantes/edicao-massa-dialog'
 import { DICA_COLUNA } from '@/lib/textos-dicas'
 import { StatusBadge, WeevoStartBadge } from '@/features/participantes/badges'
-import type { ParticipanteStatus, WeevoStart } from '@/lib/tipos'
+import type { ParticipanteRow } from '@/lib/tipos'
 import { normalize } from '@/lib/csv'
 import { formatarTelefone } from '@/lib/telefone'
 import { cn, haQuanto } from '@/lib/utils'
@@ -26,7 +26,9 @@ import { ParticipanteForm } from '@/features/participantes/participante-form'
 import { useParticipantes, useTurmas } from '@/features/participantes/queries'
 import { AlertasBadges, PontuacaoBadge, useEngajamento } from '@/features/engajamento'
 import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
-import { AGRUPAMENTOS, agrupar, lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { AGRUPAMENTOS, agrupar, colunaPersonalizada, lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { colunasDoQuadro } from '@/features/kanban/colunas'
+import { usePersonalizadas } from '@/features/kanban/queries'
 import { SeletorAgrupar } from '@/components/agrupar-por'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
 import { CABECALHO_TABELA, Paginacao, RODAPE_TABELA, usePaginacao } from '@/components/paginacao'
@@ -36,8 +38,10 @@ type FiltroAlerta = 'qualquer' | 'sem_contato' | 'sem_resposta'
 type Filtros = {
   q?: string
   turma?: string
-  status?: ParticipanteStatus
-  ws?: WeevoStart
+  /** Status fixo ou id de coluna criada no kanban de status. */
+  status?: string
+  /** Etapa fixa ou id de coluna criada no kanban de Weevo Start. */
+  ws?: string
   alerta?: FiltroAlerta
   resp?: string
   visao?: Visao
@@ -48,8 +52,8 @@ export const Route = createFileRoute('/cs/participantes/')({
   validateSearch: (s: Record<string, unknown>): Filtros => ({
     q: typeof s.q === 'string' && s.q ? s.q : undefined,
     turma: typeof s.turma === 'string' && s.turma ? s.turma : undefined,
-    status: STATUS_KEYS.includes(s.status as ParticipanteStatus) ? (s.status as ParticipanteStatus) : undefined,
-    ws: WEEVO_START_KEYS.includes(s.ws as WeevoStart) ? (s.ws as WeevoStart) : undefined,
+    status: typeof s.status === 'string' && s.status ? s.status : undefined,
+    ws: typeof s.ws === 'string' && s.ws ? s.ws : undefined,
     // `true` vem de links antigos, quando o filtro era só "com alerta".
     alerta:
       s.alerta === true || s.alerta === 'true' || s.alerta === 'qualquer'
@@ -76,6 +80,9 @@ function ParticipantesPage() {
   const [massaAberta, setMassaAberta] = useState(false)
   const repassar = useRepassar()
   const { ativas: dicasAtivas } = useDicas()
+  const personalizadas = usePersonalizadas()
+  const statusDe = (p: ParticipanteRow) => colunaPersonalizada(personalizadas, 'status', p)
+  const etapaDe = (p: ParticipanteRow) => colunaPersonalizada(personalizadas, 'weevo_start', p)
 
   const nomeTurma = useMemo(() => new Map(turmas.data?.map((t) => [t.id, t.nome])), [turmas.data])
 
@@ -84,8 +91,9 @@ function ParticipantesPage() {
     const buscaDigitos = (filtros.q ?? '').replace(/\D/g, '')
     return (participantes.data ?? []).filter((p) => {
       if (filtros.turma === 'sem' ? p.turma_id : filtros.turma && p.turma_id !== filtros.turma) return false
-      if (filtros.status && p.status !== filtros.status) return false
-      if (filtros.ws && p.weevo_start !== filtros.ws) return false
+      // Status e etapa como no kanban: quem está numa coluna criada é filtrado por ela.
+      if (filtros.status && (statusDe(p)?.chave ?? p.status) !== filtros.status) return false
+      if (filtros.ws && (etapaDe(p)?.chave ?? p.weevo_start) !== filtros.ws) return false
       if (filtros.alerta) {
         const alertas = porParticipante.get(p.id)?.alertas ?? []
         if (filtros.alerta === 'qualquer' ? !alertas.length : !alertas.some((a) => a.tipo === filtros.alerta)) return false
@@ -98,16 +106,22 @@ function ParticipantesPage() {
       }
       return true
     })
-  }, [participantes.data, filtros, porParticipante])
+  }, [participantes.data, filtros, porParticipante, personalizadas])
 
   // Na tabela o agrupamento é opcional: sem `agrupar` na URL, a lista segue sem grupos.
   const agrupamentoTabela = filtros.visao === 'tabela' ? filtros.agrupar : undefined
   const grupos = useMemo(
     () =>
       agrupamentoTabela
-        ? agrupar(agrupamentoTabela, participantes.data ?? [], turmas.data ?? [], (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0)
+        ? agrupar(
+            agrupamentoTabela,
+            participantes.data ?? [],
+            turmas.data ?? [],
+            (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0,
+            personalizadas,
+          )
         : undefined,
-    [agrupamentoTabela, participantes.data, turmas.data, porParticipante],
+    [agrupamentoTabela, participantes.data, turmas.data, porParticipante, personalizadas],
   )
   // Com grupos, quem é do mesmo grupo fica junto (inclusive entre páginas); dentro do grupo a ordem é mantida.
   const ordenados = useMemo(() => {
@@ -215,7 +229,7 @@ function ParticipantesPage() {
           <CampoFiltro label="Status">
             <Select
               value={filtros.status ?? ''}
-              onValueChange={(v) => setFiltro({ status: (v || undefined) as ParticipanteStatus | undefined })}
+              onValueChange={(v) => setFiltro({ status: v || undefined })}
             >
               <option value="">Todos os status</option>
               {STATUS_KEYS.map((k) => (
@@ -223,17 +237,27 @@ function ParticipantesPage() {
                   {STATUS_PARTICIPANTE[k].label}
                 </option>
               ))}
+              {colunasDoQuadro(personalizadas, 'participantes.status').map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.titulo}
+                </option>
+              ))}
             </Select>
           </CampoFiltro>
           <CampoFiltro label="Weevo Start">
             <Select
               value={filtros.ws ?? ''}
-              onValueChange={(v) => setFiltro({ ws: (v || undefined) as WeevoStart | undefined })}
+              onValueChange={(v) => setFiltro({ ws: v || undefined })}
             >
               <option value="">Todas as etapas</option>
               {WEEVO_START_KEYS.map((k) => (
                 <option key={k} value={k}>
                   {WEEVO_START[k].label}
+                </option>
+              ))}
+              {colunasDoQuadro(personalizadas, 'participantes.weevo_start').map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.titulo}
                 </option>
               ))}
             </Select>
@@ -420,10 +444,10 @@ function ParticipantesPage() {
                     </td>
                     <td className="px-4 py-3 text-foreground">{p.responsavel ?? <span className="text-muted-foreground/70">—</span>}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={p.status} />
+                      <StatusBadge status={p.status} coluna={statusDe(p)} />
                     </td>
                     <td className="px-4 py-3">
-                      <WeevoStartBadge valor={p.weevo_start} />
+                      <WeevoStartBadge valor={p.weevo_start} coluna={etapaDe(p)} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultimo_contato_em)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{haQuanto(p.ultima_resposta_em)}</td>

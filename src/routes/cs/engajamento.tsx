@@ -24,7 +24,8 @@ import { ExplicacaoPontuacao } from '@/features/pontuacao/explicacao-pontuacao'
 import { podeRepassar, useRepassar } from '@/features/pontuacao/repassar'
 import { TarefaForm } from '@/features/tarefas/tarefa-form'
 import { ENTRADA_VISAO, VisaoToggle, lerVisao, type Visao } from '@/components/kanban'
-import { lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { colunaPersonalizada, lerAgrupamento, type Agrupamento } from '@/features/participantes/agrupamentos'
+import { usePersonalizadas } from '@/features/kanban/queries'
 import { AgruparPor, ParticipantesKanban } from '@/features/participantes/participantes-kanban'
 
 /** Cabeçalho da tabela com fundo próprio; o rodapé da paginação repete o mesmo estilo. */
@@ -65,6 +66,7 @@ function EngajamentoPage() {
   const plantoes = usePlantoes()
   const eventos = useTodosEventos()
   const { porParticipante } = useEngajamento()
+  const personalizadas = usePersonalizadas()
   const repassar = useRepassar()
   const [abertos, setAbertos] = useState<Set<string>>(new Set())
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
@@ -401,7 +403,9 @@ function EngajamentoPage() {
                           </Link>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             {!busca.turma && <span>{p.turma_id ? nomeTurma.get(p.turma_id) : 'Sem turma'}</span>}
-                            {p.status !== 'ativo' && <StatusBadge status={p.status} />}
+                            {(p.status !== 'ativo' || colunaPersonalizada(personalizadas, 'status', p)) && (
+                              <StatusBadge status={p.status} coluna={colunaPersonalizada(personalizadas, 'status', p)} />
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2.5" onClick={parar}>
@@ -424,7 +428,7 @@ function EngajamentoPage() {
                           <PontuacaoBadge pontuacao={pt} />
                         </td>
                         <td className="px-3 py-2.5" onClick={parar}>
-                          <WeevoStartBadge valor={p.weevo_start} />
+                          <WeevoStartBadge valor={p.weevo_start} coluna={colunaPersonalizada(personalizadas, 'weevo_start', p)} />
                         </td>
                         <td className="px-3 py-2.5" onClick={parar}>
                           <div className="flex items-center justify-center">

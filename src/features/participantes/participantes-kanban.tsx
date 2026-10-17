@@ -9,12 +9,13 @@ import type { ParticipanteRow, TurmaRow } from '@/lib/tipos'
 import { formatarTelefone } from '@/lib/telefone'
 import { haQuanto } from '@/lib/utils'
 import { AlertasBadges, PontuacaoBadge, type Engajamento } from '@/features/engajamento'
-import { AGRUPAMENTOS, agrupar, type Agrupamento } from './agrupamentos'
+import { AGRUPAMENTOS, QUADRO_DO_AGRUPAMENTO, agrupar, colunaPersonalizada, valorAgrupado, type Agrupamento } from './agrupamentos'
 import { DICA_COLUNA, DICA_STATUS_PARTICIPANTE, DICA_WEEVO_START } from '@/lib/textos-dicas'
 import { StatusBadge, WeevoStartBadge } from './badges'
 import { apelidoDistinto } from './constantes'
 import { useAtualizarParticipante } from './queries'
 import { useRepassar } from '@/features/pontuacao/repassar'
+import { useQuadroKanban } from '@/features/kanban/queries'
 
 const AJUDA_MOVER: Record<Agrupamento, string> = {
   faixa: '',
@@ -67,15 +68,19 @@ export function ParticipantesKanban({
 }) {
   const atualizar = useAtualizarParticipante()
   const repassar = useRepassar()
+  const quadroDoAgrupamento = QUADRO_DO_AGRUPAMENTO[agrupamento]
+  // O hook roda sempre; sem quadro (faixa, turma), o quadro de status só é lido, nunca editado.
+  const quadro = useQuadroKanban(quadroDoAgrupamento ?? 'participantes.status')
+  const { personalizadas } = quadro
   const grupos = useMemo(() => {
-    const g = agrupar(agrupamento, participantes, turmas, (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0)
+    const g = agrupar(agrupamento, participantes, turmas, (p) => porParticipante.get(p.id)?.pontuacao.total ?? 0, personalizadas)
     const dicas: Partial<Record<Agrupamento, Record<string, string>>> = {
       status: DICA_STATUS_PARTICIPANTE,
       weevo_start: DICA_WEEVO_START,
     }
     const dicasDoGrupo = dicas[agrupamento]
-    return dicasDoGrupo ? { ...g, colunas: g.colunas.map((c) => ({ ...c, dica: dicasDoGrupo[c.chave] })) } : g
-  }, [agrupamento, participantes, turmas, porParticipante])
+    return dicasDoGrupo ? { ...g, colunas: g.colunas.map((c) => ({ ...c, dica: dicasDoGrupo[c.chave] ?? c.dica })) } : g
+  }, [agrupamento, participantes, turmas, porParticipante, personalizadas])
   const nomeTurma = useMemo(() => new Map(turmas.map((t) => [t.id, t.nome])), [turmas])
 
   // Dentro da coluna, quem tem mais pontuação vem primeiro.
@@ -103,12 +108,17 @@ export function ParticipantesKanban({
       onMover={
         grupos.mudancaPara
           ? (p, destino) => {
-              // Arrastar para "Repassado ao comercial" é um repasse: registra o evento próprio, como o botão Repassar.
-              if (agrupamento === 'weevo_start' && destino === 'repassado_comercial') repassar.mutate([p])
-              else atualizar.mutate({ atual: p, mudancas: grupos.mudancaPara!(destino) })
+              const aplicar = () => {
+                // Arrastar para "Repassado ao comercial" é um repasse: registra o evento próprio, como o botão Repassar.
+                if (agrupamento === 'weevo_start' && destino === 'repassado_comercial') repassar.mutate([p])
+                else atualizar.mutate({ atual: p, mudancas: grupos.mudancaPara!(destino) })
+              }
+              if (agrupamento === 'faixa' || agrupamento === 'turma') aplicar()
+              else quadro.soltar(p.id, destino, valorAgrupado(agrupamento, p), aplicar)
             }
           : undefined
       }
+      edicaoColunas={quadroDoAgrupamento ? quadro.edicao : undefined}
       renderCard={(p) => {
         const eng = porParticipante.get(p.id)
         // O campo pelo qual o quadro está agrupado já aparece no título da coluna.
@@ -211,10 +221,10 @@ export function ParticipantesKanban({
             )}
             <div className="flex flex-wrap gap-1">
               {agrupamento !== 'status' && (
-                <StatusBadge status={p.status} />
+                <StatusBadge status={p.status} coluna={colunaPersonalizada(personalizadas, 'status', p)} />
               )}
-              {agrupamento !== 'weevo_start' && p.weevo_start !== 'nao_avaliado' && (
-                <WeevoStartBadge valor={p.weevo_start} />
+              {agrupamento !== 'weevo_start' && (p.weevo_start !== 'nao_avaliado' || colunaPersonalizada(personalizadas, 'weevo_start', p)) && (
+                <WeevoStartBadge valor={p.weevo_start} coluna={colunaPersonalizada(personalizadas, 'weevo_start', p)} />
               )}
               {p.implementou && (
                 <Dica texto={DICA_COLUNA.implementou}>
